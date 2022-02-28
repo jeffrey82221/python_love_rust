@@ -18,3 +18,7 @@ import string_sum
 string_sum.sum_as_string(5, 20)
 ```
 
+## TODO:
+
+- [ ] A multi-thread example and compare the speed to the python sequantial version. 
+
