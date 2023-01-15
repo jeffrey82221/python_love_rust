@@ -40,6 +40,8 @@ ref: https://towardsdatascience.com/learning-rust-by-converting-python-to-rust-2
 
 ## Python Func vs Rust Func:
 
+
+
 ## Python Class vs Rust Struct: 
 
 ## Python Inheritance vs Rust Trait Implementation
