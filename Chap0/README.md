@@ -15,4 +15,5 @@ Rust structs with python Interface - introduce how to construct python tool with
 # Reference: 
 
 [Speed-up-your-Python-with-Rust](https://github.com/PacktPublishing/Speed-up-your-Python-with-Rust)
- 
+
+[Building My Own Python Pip Package](https://github.com/jeffrey82221/jsonschema_inference)
