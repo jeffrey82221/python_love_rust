@@ -7,6 +7,7 @@ pub fn hello_call(input_str: &str) {
     println!("Hello! {}", input_str)
 }
 
+// Unit Test: `cargo test`
 #[test]
 fn test_add() {
     assert_eq!(add(1, 1), '2'.to_string());
