@@ -1,49 +1,21 @@
 # python_love_rust
 A playground for building rust binding for python
 
-# Setup 
+# Chapters:
 
-1) Install maturin 
+| Title | Goal| Reference | 
+| --- | --- | --- | 
+| Chap0 | Rust structs with python Interface | | 
+| Chap1 | Altering Python Standard Objects (e.g., list, dict, etc) into Rust structs | |
+| Chap2 | Altering Python Function into Rust Func | |
+| Chap3 | Altering Python Error Handling into Rust version. | |
+| Chap4 | Altering Python Type Checking into Rust trait checking | |
+| Chap5 | Altering Python Inheritance into Rust trait implementation | |
+| Chap6 | Altering Python structured module files into structured Rust codes | |
+| Chap7 | Altering Python multi-thread / multi-process implementation into Rust `rayon`-based multi-threading | [rayon](https://github.com/rayon-rs/rayon) |
+| Chap8 | Altering Python operator overloading into Rust version| [overloading operator](https://doc.rust-lang.org/std/ops/index.html) |
 
-`pip install maturin`
+# Reference: 
 
-2) Goto First Example Folder 
-
-`cd first_example`
-
-3) Initialize maturin 
-
-`maturin init`
-
-```
-✔ 🤷 Which kind of bindings to use?
-  📖 Documentation: https://maturin.rs/bindings.html · pyo3
-  ✨ Done! Initialized project /Users/jeffreylin/codespace/python_love_rust
-```
-
-4) Build develop
-
-`maturin develop`
-
-5) Run the Rust Program from Python
-
-```
-import string_sum 
-string_sum.sum_as_string(1,3)
-> '4'
-```
-
-# Tutorials
-
-ref: https://towardsdatascience.com/learning-rust-by-converting-python-to-rust-259e735591c6
-
-
-## Python Func vs Rust Func:
-
-see: first_example/
-
-## Python Class vs Rust Struct: 
-
-## Python Inheritance vs Rust Trait Implementation
-
-## Python Obj Type Checking vs Rust Type Checking
+[Speed-up-your-Python-with-Rust](https://github.com/PacktPublishing/Speed-up-your-Python-with-Rust)
+ 
