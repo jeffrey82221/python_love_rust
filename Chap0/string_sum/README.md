@@ -22,22 +22,22 @@ pip install maturin
 maturin init
 -> select pyo3
 ```
+4) Unit testing the Rust function:
 
-4) Install the Python package:
+```bash
+cargo test
+```
+
+5) Install the Python package:
 
 ```bash
 pip install -e .
 ``` 
 
-5) Execute the `string_sum` module on Python:
+6) Execute the `string_sum` module on Python:
 
 ```python
 import string_sum
 string_sum.sum_as_string(5, 20)
 >> '25'
 ```
-
-# TODO:
-
-- [X] add rust unit test
-- [ ] add python functional test

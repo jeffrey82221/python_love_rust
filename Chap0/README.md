@@ -4,14 +4,13 @@ Rust structs with python Interface - introduce how to construct python tool with
 
 # Materials: 
 
-# 1. Building Basic Rust Executable (`hello_world`)
+- [X] 1. Building Basic Rust Executable (`hello_world`)
 
-# 2. Build Basic Rust Package using Cargo (`cargo_hello_world`)
+- [X] 2. Build Basic Rust Package using Cargo (`cargo_hello_world`)
 
-# 3. Building Python Function by Rust (`string_sum`)
+- [X] 3. Building Python Function by Rust (`string_sum`)
 
-
-# 4. Building Python Object by Rust (`logic_unit` with methods: `add`, `mul`.)
+- [X] 4. Building Python Object by Rust (`logic_unit` with methods: `add`, `mul`.)
 
 # Reference: 
 

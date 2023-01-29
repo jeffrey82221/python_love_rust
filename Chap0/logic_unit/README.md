@@ -29,15 +29,16 @@ maturin init
 pip install -e .
 ``` 
 
-5) Execute the `string_sum` module on Python:
-
-```python
-import string_sum
-string_sum.sum_as_string(5, 20)
->> '25'
 ```
 
-# TODO:
+5) Testing the Rust units:
 
-- [X] add rust unit test
-- [X] add python functional test
+```bash
+cargo test
+```
+
+6) Testing the Python Interface:
+
+```bash
+python -m pytest
+```
