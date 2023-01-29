@@ -4,11 +4,11 @@ creating the simple python package with Rust function
 
 # Development Step:
 
-1) create string_sum folder
+1) create project folder
 
 ```bash
-mkdir string_sum
-cd string_sum
+mkdir logic_unit
+cd logic_unit
 ```
 
 2) Install maturin (-> A rust + python development sdk)
@@ -40,4 +40,4 @@ string_sum.sum_as_string(5, 20)
 # TODO:
 
 - [X] add rust unit test
-- [ ] add python functional test
+- [X] add python functional test
