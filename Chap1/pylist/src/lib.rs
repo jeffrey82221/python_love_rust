@@ -1,5 +1,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyList;
+use rayon::prelude::*;
+
 
 /// Formats the sum of two numbers as string.
 #[pyfunction]
@@ -21,10 +23,21 @@ fn add_one_inplace<'a>(input_list: &'a PyList) -> PyResult<()> {
     }
     Ok(())
 }
+
+#[pyfunction]
+fn add_one_parallel<'a>(input_list: &'a PyList) -> PyResult<Vec<i32>> {
+    let mut input: Vec<i32> = input_list
+        .iter()
+        .map(|x| x.extract::<i32>().unwrap())
+        .collect();
+    input.par_iter_mut().for_each(|x| *x += 1);
+    Ok(input)
+}
 /// A Python module implemented in Rust.
 #[pymodule]
 fn pylist(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(add_one, m)?)?;
     m.add_function(wrap_pyfunction!(add_one_inplace, m)?)?;
+    m.add_function(wrap_pyfunction!(add_one_parallel, m)?)?;
     Ok(())
 }
