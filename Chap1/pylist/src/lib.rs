@@ -27,6 +27,7 @@ fn add_one_inplace<'a>(input_list: &'a PyList) -> PyResult<()> {
 
 #[pyfunction]
 fn add_one_parallel<'a>(input_list: &'a PyList) -> PyResult<Vec<i32>> {
+    // NOTE: The extraction of i32 from PyList is the bottleneck.
     let mut input: Vec<i32> = input_list
         .iter()
         .map(|x| x.extract::<i32>().unwrap())
