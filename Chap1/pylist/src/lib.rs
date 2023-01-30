@@ -1,7 +1,8 @@
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use rayon::prelude::*;
-
+use rayon;
+use num_cpus;
 
 /// Formats the sum of two numbers as string.
 #[pyfunction]
@@ -30,7 +31,13 @@ fn add_one_parallel<'a>(input_list: &'a PyList) -> PyResult<Vec<i32>> {
         .iter()
         .map(|x| x.extract::<i32>().unwrap())
         .collect();
-    input.par_iter_mut().for_each(|x| *x += 1);
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus::get() * 2)
+        .build()
+        .unwrap();
+    pool.install(|| {
+        input.par_iter_mut().for_each(|x| *x += 1);
+    });
     Ok(input)
 }
 /// A Python module implemented in Rust.
