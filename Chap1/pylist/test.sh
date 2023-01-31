@@ -1,4 +1,6 @@
 pip install -e .
 python -m pytest
-python -m timeit 'from pylist import add_one; c = add_one([1]*int(10e6))'
-python -m timeit 'from pylist import add_one_parallel; c = add_one_parallel([1]*int(10e6))'
+echo 'wo parallel'
+python -m timeit 'from pylist import self_powering; c = self_powering(list(range(int(10e5), int(10e6))))'
+echo 'w parallel'
+python -m timeit 'from pylist import self_powering_parallel; c = self_powering_parallel(list(range(int(10e5),int(10e6))))'
