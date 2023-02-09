@@ -1,6 +1,38 @@
 use pyo3::prelude::*;
 use serde_json::Value;
 use serde_json::*;
+use std::any::TypeId;
+
+
+#[repr(transparent)]
+#[derive( Clone, Debug )]
+struct CustomString( String );
+
+
+trait Shape {
+    fn area(&self) -> f64;
+}
+
+struct Rectangle {
+    width: f64,
+    height: f64,
+}
+
+impl Shape for Rectangle {
+    fn area(&self) -> f64 {
+        self.width * self.height
+    }
+}
+
+struct Circle {
+    radius: f64,
+}
+
+impl Shape for Circle {
+    fn area(&self) -> f64 {
+        std::f64::consts::PI * self.radius * self.radius
+    }
+}
 
 
 fn check_type(val: &dyn std::any::Any) -> &'static str {
@@ -12,6 +44,8 @@ fn check_type(val: &dyn std::any::Any) -> &'static str {
         "&str"
     } else if val.is::<String>() {
         "String"
+    } else if val.is::<CustomString>() {
+        "CustomString"
     } else if val.downcast_ref::<Value>().is_some() {
         match val.downcast_ref::<Value>().unwrap() {
             Value::Array(_) => "Value::Array",
@@ -23,7 +57,11 @@ fn check_type(val: &dyn std::any::Any) -> &'static str {
             _ => "Value",
         }
     } else {
-        "Other type"
+        if val.is::<Rectangle>() | val.is::<Circle>() {
+            "Shape"
+        } else {
+            "Other type"
+        }
     }
 }
 
@@ -63,6 +101,13 @@ pub fn parse() -> PyResult<()> {
         ].into_iter().collect()
     );
     println!("o is a {}", check_type(&o));
+    
+    let s = CustomString("hello".to_string());
+    println!("s is a {}", check_type(&s));
+
+    let r = Rectangle { width: 10.0, height: 5.0 };
+    println!("r is a {}", check_type(&r));
+
     Ok(())
 }
 #[pymodule]
