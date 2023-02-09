@@ -1,7 +1,6 @@
 use pyo3::prelude::*;
 use serde_json::Value;
 use serde_json::*;
-use std::any::TypeId;
 
 
 #[repr(transparent)]
@@ -11,6 +10,9 @@ struct CustomString( String );
 
 trait Shape {
     fn area(&self) -> f64;
+    fn trait_method(&self) -> f64 {
+        0.0 + 1.0
+    }
 }
 
 struct Rectangle {
