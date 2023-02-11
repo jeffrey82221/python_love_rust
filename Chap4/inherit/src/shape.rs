@@ -1,7 +1,4 @@
-pub trait Shape {
-    fn area(&self) -> f64;
-    fn print(&self);
-}
+use crate::base::Shape;
 
 #[derive(Copy, Clone)]
 pub struct Rectangle {

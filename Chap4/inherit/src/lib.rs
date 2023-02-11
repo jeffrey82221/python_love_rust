@@ -1,8 +1,10 @@
 use pyo3::prelude::*;
 
 mod shape;
+mod base;
 
-use shape::{Shape, Circle, Rectangle, ShapeBag};
+use shape::{Circle, Rectangle, ShapeBag};
+use base::Shape;
 
 #[pyfunction]
 pub fn parse() -> PyResult<()> {
