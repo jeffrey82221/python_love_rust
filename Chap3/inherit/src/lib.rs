@@ -33,12 +33,37 @@ impl Shape for Circle {
     }
 }
 
+struct ShapeBag<'a> {
+    shapes: Vec<&'a dyn Shape>,
+}
+
+impl <'a> Shape for ShapeBag<'a> {
+    fn area(&self) -> f64 {
+        let mut i: f64 = 0.0;
+        for s in &self.shapes {
+            i += s.area();
+        }
+        i
+    }
+    fn print(&self) {
+        println!("ShapeBag with:");
+        for s in &self.shapes {
+            s.print();
+        }
+    }
+
+}
 #[pyfunction]
 pub fn parse() -> PyResult<()> {
     let c = Circle {radius: 10.0};
     c.print();
     let r = Rectangle {width: 10.0, height: 20.0};
     r.print();
+    let mut v: Vec<&dyn Shape> = vec![];
+    v.push(&r);
+    v.push(&c);
+    let b = ShapeBag {shapes: v};
+    b.print();
     Ok(())
 }
 
