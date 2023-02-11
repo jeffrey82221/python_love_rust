@@ -1,10 +1,10 @@
 use pyo3::prelude::*;
 
-mod shape;
+mod shapes;
 mod base;
 mod bag;
 
-use shape::{Circle, Rectangle};
+use shapes::{Circle, Rectangle};
 use bag::ShapeBag;
 use base::Shape;
 
