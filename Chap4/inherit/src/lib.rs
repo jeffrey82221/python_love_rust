@@ -2,8 +2,10 @@ use pyo3::prelude::*;
 
 mod shape;
 mod base;
+mod bag;
 
-use shape::{Circle, Rectangle, ShapeBag};
+use shape::{Circle, Rectangle};
+use bag::ShapeBag;
 use base::Shape;
 
 #[pyfunction]
