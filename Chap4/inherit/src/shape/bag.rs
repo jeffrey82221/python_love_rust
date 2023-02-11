@@ -1,4 +1,4 @@
-use crate::base::Shape;
+use crate::shape::base::Shape;
 
 pub struct ShapeBag {
     pub shapes: Vec<Box<dyn Shape>>,

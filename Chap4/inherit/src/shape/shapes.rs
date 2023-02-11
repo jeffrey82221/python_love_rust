@@ -1,4 +1,4 @@
-use crate::base::Shape;
+use crate::shape::base::Shape;
 
 #[derive(Copy, Clone)]
 pub struct Rectangle {
