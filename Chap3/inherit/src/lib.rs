@@ -1,5 +1,6 @@
 // TODO: [ ] Enable override of __add__ __sum__ ... 
 use pyo3::prelude::*;
+use std::ops::Add;
 
 trait Shape {
     fn area(&self) -> f64;
@@ -33,11 +34,11 @@ impl Shape for Circle {
     }
 }
 
-struct ShapeBag<'a> {
-    shapes: Vec<&'a dyn Shape>,
+struct ShapeBag {
+    shapes: Vec<Box<dyn Shape>>,
 }
 
-impl <'a> Shape for ShapeBag<'a> {
+impl Shape for ShapeBag {
     fn area(&self) -> f64 {
         let mut i: f64 = 0.0;
         for s in &self.shapes {
@@ -46,23 +47,22 @@ impl <'a> Shape for ShapeBag<'a> {
         i
     }
     fn print(&self) {
-        println!("ShapeBag with:");
+        println!("ShapeBag contains:");
         for s in &self.shapes {
             s.print();
         }
     }
 
 }
+
+
 #[pyfunction]
 pub fn parse() -> PyResult<()> {
     let c = Circle {radius: 10.0};
     c.print();
     let r = Rectangle {width: 10.0, height: 20.0};
     r.print();
-    let mut v: Vec<&dyn Shape> = vec![];
-    v.push(&r);
-    v.push(&c);
-    let b = ShapeBag {shapes: v};
+    let b = ShapeBag { shapes: vec![Box::new(r), Box::new(c)] };
     b.print();
     Ok(())
 }
