@@ -1,12 +1,15 @@
 // TODO: [ ] Enable override of __add__ __sum__ ... 
 use pyo3::prelude::*;
 use std::ops::Add;
+use std::rc::Rc;
+
 
 trait Shape {
     fn area(&self) -> f64;
     fn print(&self);
 }
 
+#[derive(Copy, Clone)]
 struct Rectangle {
     width: f64,
     height: f64,
@@ -21,6 +24,7 @@ impl Shape for Rectangle {
     }
 }
 
+#[derive(Copy, Clone)]
 struct Circle {
     radius: f64,
 }
@@ -34,8 +38,9 @@ impl Shape for Circle {
     }
 }
 
+
 struct ShapeBag {
-    shapes: Vec<Box<dyn Shape>>,
+    shapes: Vec<Rc<dyn Shape>>,
 }
 
 impl Shape for ShapeBag {
@@ -55,15 +60,14 @@ impl Shape for ShapeBag {
 
 }
 
-
 #[pyfunction]
 pub fn parse() -> PyResult<()> {
     let c = Circle {radius: 10.0};
     c.print();
     let r = Rectangle {width: 10.0, height: 20.0};
     r.print();
-    let b = ShapeBag { shapes: vec![Box::new(r), Box::new(c)] };
-    b.print();
+    let b1 = ShapeBag { shapes: vec![Rc::new(r), Rc::new(c)] };
+    b1.print();
     Ok(())
 }
 
