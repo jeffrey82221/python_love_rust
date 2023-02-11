@@ -1,61 +1,8 @@
 use pyo3::prelude::*;
 
+mod shape;
 
-trait Shape {
-    fn area(&self) -> f64;
-    fn print(&self);
-}
-
-#[derive(Copy, Clone)]
-struct Rectangle {
-    width: f64,
-    height: f64,
-}
-
-impl Shape for Rectangle {
-    fn area(&self) -> f64 {
-        self.width * self.height
-    }
-    fn print(&self) {
-        println!("Rectangle {} X {}", self.width, self.height)
-    }
-}
-
-#[derive(Copy, Clone)]
-struct Circle {
-    radius: f64,
-}
-
-impl Shape for Circle {
-    fn area(&self) -> f64 {
-        std::f64::consts::PI * self.radius * self.radius
-    }
-    fn print(&self) {
-        println!("Circle of Size {}", self.area())
-    }
-}
-
-
-struct ShapeBag {
-    shapes: Vec<Box<dyn Shape>>,
-}
-
-impl Shape for ShapeBag {
-    fn area(&self) -> f64 {
-        let mut i: f64 = 0.0;
-        for s in &self.shapes {
-            i += s.area();
-        }
-        i
-    }
-    fn print(&self) {
-        println!("ShapeBag contains:");
-        for s in &self.shapes {
-            s.print();
-        }
-    }
-}
-
+use shape::{Shape, Circle, Rectangle, ShapeBag};
 
 #[pyfunction]
 pub fn parse() -> PyResult<()> {
