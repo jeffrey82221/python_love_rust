@@ -14,7 +14,7 @@ A playground for building rust binding for python
 | Chap6 | Implementing a Static Method for a Rust Struct| |
 | Chap7 | Alter Python set operation to Rust HashSet operation | |
 | Chap8 | Altering Python multi-thread / multi-process implementation into Rust `rayon`-based multi-threading | [rayon](https://github.com/rayon-rs/rayon) |
-
+| Chap9 | Converting Json String to Rust Json Object and Pass the Json String from Python |  |
 # Reference: 
 
 [Speed-up-your-Python-with-Rust](https://github.com/PacktPublishing/Speed-up-your-Python-with-Rust)
