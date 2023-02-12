@@ -10,8 +10,8 @@ A playground for building rust binding for python
 | Chap2 | Altering Python Type Checking into Rust Struct Checking | |
 | Chap3 | Altering Python Inheritance into Rust Trait Implementation | |
 | Chap4 | Altering Python structured module files into structured Rust codes | |
-| Chap5 | Altering Python multi-thread / multi-process implementation into Rust `rayon`-based multi-threading | [rayon](https://github.com/rayon-rs/rayon) |
-| Chap6 | Altering Python operator overloading into Rust version| [overloading operator](https://doc.rust-lang.org/std/ops/index.html) |
+| Chap5 | Altering Python operator overloading into Rust version| [overloading operator](https://doc.rust-lang.org/std/ops/index.html) |
+| Chap6 | Altering Python multi-thread / multi-process implementation into Rust `rayon`-based multi-threading | [rayon](https://github.com/rayon-rs/rayon) |
 
 # Reference: 
 
