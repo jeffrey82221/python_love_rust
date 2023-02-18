@@ -15,6 +15,7 @@ A playground for building rust binding for python
 | Chap7 | Alter Python set operation to Rust HashSet operation | |
 | Chap8 | Altering Python multi-thread / multi-process implementation into Rust `rayon`-based multi-threading | [rayon](https://github.com/rayon-rs/rayon) |
 | Chap9 | Converting Json String to Rust Json Object and Pass the Json String from Python |  |
+| Chap10 | Let a rust creat python initialization string. Also enable python object having rust object wrapped in __init__ of the python object  |  |
 # Reference: 
 
 [Speed-up-your-Python-with-Rust](https://github.com/PacktPublishing/Speed-up-your-Python-with-Rust)
