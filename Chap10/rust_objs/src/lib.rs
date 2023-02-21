@@ -10,16 +10,86 @@
 // 3. [ ] Let RustPoint be able to be converted to a str ("Point(x, y)")
 // 4. [ ] Implement methods on RustPoint and call them from the Python Point method. 
 use pyo3::prelude::*;
+////////////////// Float //////////////////
+#[derive(Clone)]
+struct RustFloat {}
+impl RustFloat {
+    fn new() -> RustFloat {
+        RustFloat {}
+    }
+    fn repr(&self) -> String {
+        format!("Float()")
+    }
+}
+impl IntoPy<PyObject> for RustFloat {
+    fn into_py(self, py: Python) -> PyObject {
+        py.None()
+    }
+}
+#[derive(Clone)]
+#[pyclass]
+struct Float {
+    #[pyo3(get)]
+    rust_obj: RustFloat,
+}
+#[pymethods]
+impl Float {
+    #[new]
+    fn new() -> Self {
+        Float { rust_obj: RustFloat {} }
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
 
+////////////////// Int //////////////////
+#[derive(Clone)]
+struct RustInt {}
+impl RustInt {
+    fn new() -> RustInt {
+        RustInt {}
+    }
+    fn repr(&self) -> String {
+        format!("Int()")
+    }
+}
+impl IntoPy<PyObject> for RustInt {
+    fn into_py(self, py: Python) -> PyObject {
+        py.None()
+    }
+}
+#[derive(Clone)]
+#[pyclass]
+struct Int {
+    #[pyo3(get)]
+    rust_obj: RustInt,
+}
+#[pymethods]
+impl Int {
+    #[new]
+    fn new() -> Self {
+        let x = RustInt {};
+        Int {rust_obj: x}
+    }
+
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
+
+////////////////// Atomic //////////////////
 #[derive(Clone)]
 struct RustAtomic {
-    content: i32   
+    content: RustInt   
 }
 impl RustAtomic {
-    fn new(content: i32) -> RustAtomic {
-        RustAtomic { content }
+    fn new(i: RustInt) -> RustAtomic {
+        RustAtomic { content: i}
+    } 
+    fn repr(&self) -> String {
+        format!("Atomic({})", self.content.repr())
     }
-    
 }
 impl IntoPy<PyObject> for RustAtomic {
     fn into_py(self, py: Python) -> PyObject {
@@ -38,19 +108,21 @@ struct Atomic {
 #[pymethods]
 impl Atomic {
     #[new]
-    fn new(content: i32) -> Self {
-        let x = RustAtomic {content};
+    fn new(i: Int) -> Self {
+        let x = RustAtomic {content: i.rust_obj};
         Atomic { rust_obj: x }
     }
 
     fn __repr__(&self) -> String {
-        format!("Atomic({})", self.rust_obj.content)
+        self.rust_obj.repr()
     }
 }
 
 
 #[pymodule]
 fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
+    m.add_class::<Int>()?;
+    m.add_class::<Float>()?;
     m.add_class::<Atomic>()?;
     return Ok( () );
 }
