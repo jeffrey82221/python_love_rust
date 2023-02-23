@@ -10,6 +10,7 @@
 // 3. [ ] Let RustPoint be able to be converted to a str ("Point(x, y)")
 // 4. [ ] Implement methods on RustPoint and call them from the Python Point method. 
 use pyo3::prelude::*;
+use pyo3::exceptions;
 ////////////////// Float //////////////////
 #[derive(Clone)]
 struct RustFloat {}
@@ -77,14 +78,27 @@ impl Int {
         self.rust_obj.repr()
     }
 }
-
+////////////////// Number //////////////////
+#[derive(Clone)]
+enum RustNumber {
+    Int(RustInt),
+    Float(RustFloat)
+}
+impl RustNumber {
+    fn repr(&self) -> String {
+        match self {
+            RustNumber::Int(int_val) => int_val.repr(),
+            RustNumber::Float(float_val) => float_val.repr(),
+        }
+    }
+}
 ////////////////// Atomic //////////////////
 #[derive(Clone)]
 struct RustAtomic {
-    content: RustInt   
+    content: RustNumber   
 }
 impl RustAtomic {
-    fn new(i: RustInt) -> RustAtomic {
+    fn new(i: RustNumber) -> RustAtomic {
         RustAtomic { content: i}
     } 
     fn repr(&self) -> String {
@@ -108,11 +122,17 @@ struct Atomic {
 #[pymethods]
 impl Atomic {
     #[new]
-    fn new(i: Int) -> Self {
-        let x = RustAtomic {content: i.rust_obj};
-        Atomic { rust_obj: x }
+    fn new(obj: &PyAny) -> PyResult<Self> {
+        if let Ok(int) = obj.extract::<Int>() {
+            let rust_atomic = RustAtomic { content: RustNumber::Int(int.rust_obj) };
+            Ok(Atomic { rust_obj: rust_atomic })
+        } else if let Ok(float) = obj.extract::<Float>() {
+            let rust_atomic = RustAtomic { content: RustNumber::Float(float.rust_obj) };
+            Ok(Atomic { rust_obj: rust_atomic })
+        } else {
+            Err(exceptions::PyTypeError::new_err("Expect an Int or Float"))
+        }
     }
-
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
     }
