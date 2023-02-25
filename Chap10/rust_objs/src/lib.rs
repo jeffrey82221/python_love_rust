@@ -9,20 +9,51 @@
 //    - [ ] Float
 //    - [ ] Int
 //    - [ ] Num 
-//    - [ ] String
+//    - [ ] Str
 //    - [ ] None
 //    - [ ] Atomic
 // 2. [ ] Let PyClass takes RustObjects as variable. 
 //    - [ ] Float
 //    - [ ] Int
 //    - [ ] Num 
-//    - [ ] String
+//    - [ ] Str
 //    - [ ] None
 //    - [ ] Atomic
 // 3. [ ] Let RustObject be able to be converted to a str ("Int()")
 // 4. [ ] Implement methods on Rust objects and call them from the Python Object. 
 use pyo3::prelude::*;
 use pyo3::exceptions;
+////////////////// Non //////////////////
+#[derive(Clone)]
+struct RustNon {}
+impl RustNon {
+    fn new() -> RustNon {
+        RustNon {}
+    }
+    fn repr(&self) -> String {
+        format!("Non()")
+    }
+}
+impl IntoPy<PyObject> for RustNon {
+    fn into_py(self, py: Python) -> PyObject {
+        py.None()
+    }
+}
+#[derive(Clone)]
+#[pyclass]
+struct Non {
+    rust_obj: RustNon,
+}
+#[pymethods]
+impl Non {
+    #[new]
+    fn new() -> Self {
+        Non { rust_obj: RustNon {} }
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
 ////////////////// Float //////////////////
 #[derive(Clone)]
 struct RustFloat {}
@@ -42,7 +73,6 @@ impl IntoPy<PyObject> for RustFloat {
 #[derive(Clone)]
 #[pyclass]
 struct Float {
-    #[pyo3(get)]
     rust_obj: RustFloat,
 }
 #[pymethods]
@@ -75,7 +105,6 @@ impl IntoPy<PyObject> for RustInt {
 #[derive(Clone)]
 #[pyclass]
 struct Int {
-    #[pyo3(get)]
     rust_obj: RustInt,
 }
 #[pymethods]
@@ -123,7 +152,6 @@ impl IntoPy<PyObject> for RustStr {
 #[derive(Clone)]
 #[pyclass]
 struct Str {
-    #[pyo3(get)]
     rust_obj: RustStr,
 }
 #[pymethods]
@@ -140,13 +168,15 @@ impl Str {
 #[derive(Clone)]
 enum RustAtomic {
     Num(RustNum),
-    Str(RustStr)
+    Str(RustStr),
+    Non(RustNon)
 }
 impl RustAtomic {
     fn repr(&self) -> String {
         match self {
             RustAtomic::Str(str_val) => format!("Atomic({})", str_val.repr()),
             RustAtomic::Num(num_val) => format!("Atomic({})", num_val.repr()),
+            RustAtomic::Non(non_val) => format!("Atomic({})", non_val.repr()),
         }
     }
 }
@@ -160,7 +190,6 @@ impl IntoPy<PyObject> for RustAtomic {
 #[derive(Clone)]
 #[pyclass]
 struct Atomic {
-    #[pyo3(get)]
     rust_obj: RustAtomic,
 }
 
@@ -168,18 +197,14 @@ struct Atomic {
 impl Atomic {
     #[new]
     fn new(obj: &PyAny) -> PyResult<Self> {
-        if let Ok(int) = obj.extract::<Int>() {
-            let rust_atomic = RustAtomic::Num(RustNum::Int(int.rust_obj));
-            Ok(Atomic { rust_obj: rust_atomic })
-        } else if let Ok(float) = obj.extract::<Float>() {
-            let rust_atomic = RustAtomic::Num(RustNum::Float(float.rust_obj));
-            Ok(Atomic { rust_obj: rust_atomic })
-        } else if let Ok(string) = obj.extract::<Str>() {
-            let rust_atomic = RustAtomic::Str(string.rust_obj);
-            Ok(Atomic { rust_obj: rust_atomic })
-        } else {
-            Err(exceptions::PyTypeError::new_err("Expect an Int or Float"))
-        }
+        let rust_atomic = match (obj.extract::<Int>(), obj.extract::<Float>(), obj.extract::<Str>(), obj.extract::<Non>()) {
+            (Ok(int), _, _, _) => RustAtomic::Num(RustNum::Int(int.rust_obj)),
+            (_, Ok(float), _, _) => RustAtomic::Num(RustNum::Float(float.rust_obj)),
+            (_, _, Ok(string), _) => RustAtomic::Str(string.rust_obj),
+            (_, _, _, Ok(non)) => RustAtomic::Non(non.rust_obj),
+            _ => return Err(exceptions::PyTypeError::new_err("Expect an Int, Float, Str or Non"))
+        };
+        Ok(Atomic { rust_obj: rust_atomic })
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
@@ -192,6 +217,7 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Int>()?;
     m.add_class::<Float>()?;
     m.add_class::<Str>()?;
+    m.add_class::<Non>()?;
     m.add_class::<Atomic>()?;
     return Ok( () );
 }
