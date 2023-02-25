@@ -51,7 +51,7 @@ fn check_type(val: &dyn std::any::Any) -> &'static str {
     } else if val.downcast_ref::<Value>().is_some() {
         match val.downcast_ref::<Value>().unwrap() {
             Value::Array(_) => "Value::Array",
-            Value::Number(_) => "Value::Number",
+            Value::Num(_) => "Value::Num",
             Value::String(_) => "Value::String",
             Value::Bool(_) => "Value::Bool",
             Value::Null => "Value::Null",
@@ -99,7 +99,7 @@ pub fn parse() -> PyResult<()> {
     let o = Value::Object(
         vec![
             (String::from("key1"), Value::String(String::from("value1"))),
-            (String::from("key2"), Value::Number(Number::from(42)))
+            (String::from("key2"), Value::Num(Num::from(42)))
         ].into_iter().collect()
     );
     println!("o is a {}", check_type(&o));
@@ -113,7 +113,7 @@ pub fn parse() -> PyResult<()> {
     Ok(())
 }
 #[pymodule]
-fn print_type_of_rust_obj( _py: Python, m: &PyModule ) -> PyResult<()> {
+fn print_type_of_o( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_function( wrap_pyfunction!( parse, m )? )?;
     return Ok( () );
 }
