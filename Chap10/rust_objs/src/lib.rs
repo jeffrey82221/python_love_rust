@@ -234,7 +234,8 @@ impl RustUnion {
         RustUnion {content: content}
     }
     fn repr(&self) -> String {
-        let atom_reprs: Vec<String> = self.content.iter().map(|a| a.repr()).collect();
+        let mut atom_reprs: Vec<String> = self.content.iter().map(|a| a.repr()).collect();
+        atom_reprs.sort();
         format!("Union({{{}}})", atom_reprs.join(", "))
     }
 }
@@ -331,8 +332,19 @@ mod tests {
         let mut set = HashSet::new();
         let v1 = RustAtomic::Num(RustNum::Int(RustInt{}));
         let v2 = RustAtomic::Num(RustNum::Float(RustFloat{}));
+        
         set.insert(v1.clone());
         set.insert(v2.clone());
+        let u = RustUnion{ content: set};
+        assert_eq!(u.content.len(), 2);
+        assert_eq!(u.repr(), "Union({Atomic(Float()), Atomic(Int())})");
+        let mut set = HashSet::new();
+        let v1 = RustAtomic::Num(RustNum::Int(RustInt{}));
+        let v2 = RustAtomic::Num(RustNum::Float(RustFloat{}));
+        let v3 = RustAtomic::Num(RustNum::Float(RustFloat{}));
+        set.insert(v1.clone());
+        set.insert(v2.clone());
+        set.insert(v3.clone());
         let u = RustUnion{ content: set};
         assert_eq!(u.content.len(), 2);
         assert_eq!(u.repr(), "Union({Atomic(Float()), Atomic(Int())})");
