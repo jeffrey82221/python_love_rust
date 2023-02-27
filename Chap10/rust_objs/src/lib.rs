@@ -16,7 +16,7 @@
 //         FIXME: Union with Union as element does not make sense, 
 //         but Union with Array, Atomic, or Record does make sense. 
 //    - [X] Optional
-//    - [ ] Array 
+//    - [X] Array 
 //    - [ ] Record
 // 2. [ ] Let PyClass takes RustObjects as variable. 
 //    - [X] Float
@@ -27,7 +27,7 @@
 //    - [X] Atomic
 //    - [X] Union (content a set of Atomic)
 //    - [X] Optional
-//    - [ ] Array 
+//    - [X] Array 
 //    - [ ] Record
 // 3. [ ] Implement | operation 
 // 4. [ ] Let RustObject be able to be converted to a str ("Int()")
@@ -38,7 +38,6 @@ use pyo3::exceptions;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use pyo3::types::PySet;
-//use pyo3::types::PyList;
 
 ////////////////// Non //////////////////
 #[derive(Clone, Eq, PartialEq)]
@@ -232,14 +231,51 @@ impl Atomic {
     }
 }
 //////////////////// Array ///////////////////////////
-
+#[derive(Clone, Eq, PartialEq)]
+struct RustArray {
+    content: RustJsonSchema
+}
+impl RustArray {
+    fn new(content: RustJsonSchema) -> RustArray {
+        RustArray {content: content}
+    }
+    fn repr(&self) -> String {
+        format!("Array({})", self.content.repr())
+    }
+}
+impl IntoPy<PyObject> for RustArray {
+    fn into_py(self, py: Python) -> PyObject {
+        py.None()
+    }
+}
+#[derive(Clone)]
+#[pyclass]
+struct Array {
+    rust_obj: RustArray,
+}
+#[pymethods]
+impl Array {
+    #[new]
+    fn new(obj: &PyAny) -> PyResult<Self> {
+        let rust_schema = match (obj.extract::<Atomic>(), obj.extract::<Array>(), obj.extract::<Union>()) {
+            (Ok(atom), _, _) => RustJsonSchema::Atomic(atom.rust_obj),
+            (_, Ok(arr), _) => RustJsonSchema::Array(Box::new(arr.rust_obj)),
+            (_, _, Ok(uni)) => RustJsonSchema::Union(uni.rust_obj),
+            _ => return Err(exceptions::PyTypeError::new_err("Expect an Atomic, Array, or Union"))
+        };
+        Ok(Array { rust_obj: RustArray{content: rust_schema} })
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
 //////////////////// Record ///////////////////////////
 
 //////////////////// JsonSchema ///////////////////////////
 #[derive(Clone, Eq, PartialEq)]
 enum RustJsonSchema {
-    Atomic(RustAtomic), 
-    // Array
+    Atomic(RustAtomic),
+    Array(Box<RustArray>),
     // Record
     Union(RustUnion) // Advance Json Schema
 }
@@ -248,6 +284,7 @@ impl RustJsonSchema {
         match self {
             RustJsonSchema::Atomic(atom_val) => atom_val.repr(),
             RustJsonSchema::Union(union_val) => union_val.repr(),
+            RustJsonSchema::Array(array_val) => array_val.repr(),
         }
     }
 }
@@ -267,8 +304,8 @@ impl RustUnion {
         RustUnion {content: content}
     }
     fn repr(&self) -> String {
-        let mut has_non: u32 = 0;
-        let mut total_cnt: u32 = 0;
+        let mut has_non: u8 = 0;
+        let mut total_cnt: u8 = 0;
         let mut reprs: Vec<String> = self.content.iter().map(|a| {
             let s = a.repr();
             if s == "Atomic(Non())" {
@@ -350,6 +387,7 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Str>()?;
     m.add_class::<Non>()?;
     m.add_class::<Atomic>()?;
+    m.add_class::<Array>()?;
     m.add_class::<Union>()?;
     m.add_class::<Optional>()?;
     return Ok( () );
@@ -440,5 +478,12 @@ mod tests {
         let u = RustUnion{ content: set};
         assert_eq!(u.content.len(), 2);
         assert_eq!(u.repr(), "Optional(Atomic(Int()))");
+    }
+    #[test]
+    fn test_array() {
+        let a = RustArray { content: RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})) };
+        assert_eq!(a.repr(), "Array(Atomic(Non()))");
+        let b = RustArray { content: RustJsonSchema::Array(Box::new(a.clone()))};
+        assert_eq!(b.repr(), "Array(Array(Atomic(Non())))");
     }
 }
