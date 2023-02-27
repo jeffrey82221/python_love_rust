@@ -15,7 +15,7 @@
 //    - [X] Union (content a HashSet of RustAtomic)
 //         FIXME: Union with Union as element does not make sense, 
 //         but Union with Array, Atomic, or Record does make sense. 
-//    - [ ] Optional
+//    - [X] Optional
 //    - [ ] Array 
 //    - [ ] Record
 // 2. [ ] Let PyClass takes RustObjects as variable. 
@@ -26,12 +26,13 @@
 //    - [X] Non
 //    - [X] Atomic
 //    - [X] Union (content a set of Atomic)
-//    - [ ] Optional
+//    - [X] Optional
 //    - [ ] Array 
 //    - [ ] Record
-// 3. [ ] Let RustObject be able to be converted to a str ("Int()")
-// 4. [ ] Implement methods on Rust objects and call them from the Python Object. 
-// 5. [ ] UnitTest identical to the jsonschema python package.
+// 3. [ ] Implement | operation 
+// 4. [ ] Let RustObject be able to be converted to a str ("Int()")
+// 5. [ ] Implement methods on Rust objects and call them from the Python Object. 
+// 6. [ ] UnitTest identical to the jsonschema python package.
 use pyo3::prelude::*;
 use pyo3::exceptions;
 use std::collections::HashSet;
@@ -230,8 +231,33 @@ impl Atomic {
         self.rust_obj.repr()
     }
 }
+//////////////////// Array ///////////////////////////
 
-//////////////// Union ////////////////////////
+//////////////////// Record ///////////////////////////
+
+//////////////////// JsonSchema ///////////////////////////
+#[derive(Clone, Eq, PartialEq)]
+enum RustJsonSchema {
+    Atomic(RustAtomic), 
+    // Array
+    // Record
+    Union(RustUnion) // Advance Json Schema
+}
+impl RustJsonSchema {
+    fn repr(&self) -> String {
+        match self {
+            RustJsonSchema::Atomic(atom_val) => atom_val.repr(),
+            RustJsonSchema::Union(union_val) => union_val.repr(),
+        }
+    }
+}
+impl Hash for RustJsonSchema {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.repr().hash(state)
+    }
+}
+//////////////// Union + Optional (implement python interface only) ////////////////////////
+
 #[derive(Clone, Eq, PartialEq)]
 struct RustUnion {
     content: HashSet<RustJsonSchema>,
@@ -241,9 +267,24 @@ impl RustUnion {
         RustUnion {content: content}
     }
     fn repr(&self) -> String {
-        let mut reprs: Vec<String> = self.content.iter().map(|a| a.repr()).collect();
-        reprs.sort();
-        format!("Union({{{}}})", reprs.join(", "))
+        let mut has_non: u32 = 0;
+        let mut total_cnt: u32 = 0;
+        let mut reprs: Vec<String> = self.content.iter().map(|a| {
+            let s = a.repr();
+            if s == "Atomic(Non())" {
+                has_non += 1;
+            }
+            total_cnt += 1;
+            s
+        }).collect();
+        if (has_non > 0) & (total_cnt == 2) {
+            reprs.retain(|x| *x != "Atomic(Non())");
+            format!("Optional({})", reprs[0])
+        } else {
+            reprs.sort();
+            format!("Union({{{}}})", reprs.join(", "))
+        }
+        
     }
 }
 impl IntoPy<PyObject> for RustUnion {
@@ -282,26 +323,25 @@ impl Union {
         self.rust_obj.repr()
     }
 }
-//////////////////// JsonSchema ///////////////////////////
-#[derive(Clone, Eq, PartialEq)]
-enum RustJsonSchema {
-    Atomic(RustAtomic),
-    Union(RustUnion)
+#[derive(Clone)]
+#[pyclass]
+struct Optional {
+    rust_obj: RustUnion,
 }
-impl RustJsonSchema {
-    fn repr(&self) -> String {
-        match self {
-            RustJsonSchema::Atomic(atom_val) => atom_val.repr(),
-            RustJsonSchema::Union(union_val) => union_val.repr(),
-        }
+
+#[pymethods]
+impl Optional {
+    #[new]
+    fn new(obj: &Atomic) -> PyResult<Self> {
+        let mut content = HashSet::new();
+        content.insert(RustJsonSchema::Atomic(obj.rust_obj.clone()));
+        content.insert(RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})));
+        Ok(Optional { rust_obj: RustUnion {content: content} })
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
     }
 }
-impl Hash for RustJsonSchema {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.repr().hash(state)
-    }
-}
-/////////////// Optional ////////////////////
 
 #[pymodule]
 fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
@@ -311,6 +351,7 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Non>()?;
     m.add_class::<Atomic>()?;
     m.add_class::<Union>()?;
+    m.add_class::<Optional>()?;
     return Ok( () );
 }
 
@@ -388,5 +429,16 @@ mod tests {
         let u2 = RustUnion{ content: set2};
         assert_eq!(u2.content.len(), 3);
         assert_eq!(u2.repr(), "Union({Atomic(Float()), Atomic(Int()), Union({Atomic(Float()), Atomic(Int())})})");
+    }
+    #[test]
+    fn test_optional() {
+        let mut set = HashSet::new();
+        let v1 = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let v2 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
+        set.insert(v1.clone());
+        set.insert(v2.clone());
+        let u = RustUnion{ content: set};
+        assert_eq!(u.content.len(), 2);
+        assert_eq!(u.repr(), "Optional(Atomic(Int()))");
     }
 }
