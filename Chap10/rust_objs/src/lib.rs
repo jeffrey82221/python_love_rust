@@ -30,6 +30,15 @@
 //    - [X] Array 
 //    - [ ] Record
 // 3. [ ] Implement | operation 
+//    - [ ] Atomic + Atomic -> Atomic / Union
+//    - [ ] Atomic + Union -> Union
+//    - [ ] Atomic + Array -> Union 
+//    - [ ] Union + Atomic -> Union
+//    - [ ] Union + Union -> Union 
+//    - [ ] Union + Array -> Union
+//    - [ ] Array + Atomic -> Union
+//    - [ ] Array + Union -> Union
+//    - [ ] Array + Array -> Array[xx]
 // 4. [ ] Let RustObject be able to be converted to a str ("Int()")
 // 5. [ ] Implement methods on Rust objects and call them from the Python Object. 
 // 6. [ ] UnitTest identical to the jsonschema python package.
