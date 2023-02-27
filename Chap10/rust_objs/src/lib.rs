@@ -27,8 +27,13 @@
 // 4. [ ] Implement methods on Rust objects and call them from the Python Object. 
 use pyo3::prelude::*;
 use pyo3::exceptions;
+//use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
+//use pyo3::types::PySet;
+use pyo3::types::PyList;
+
 ////////////////// Non //////////////////
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct RustNon {}
 impl RustNon {
     fn new() -> RustNon {
@@ -36,6 +41,11 @@ impl RustNon {
     }
     fn repr(&self) -> String {
         format!("Non()")
+    }
+}
+impl Hash for RustNon {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hash(state)
     }
 }
 impl IntoPy<PyObject> for RustNon {
@@ -59,7 +69,7 @@ impl Non {
     }
 }
 ////////////////// Float //////////////////
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct RustFloat {}
 impl RustFloat {
     fn new() -> RustFloat {
@@ -67,6 +77,11 @@ impl RustFloat {
     }
     fn repr(&self) -> String {
         format!("Float()")
+    }
+}
+impl Hash for RustFloat {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hash(state)
     }
 }
 impl IntoPy<PyObject> for RustFloat {
@@ -91,7 +106,7 @@ impl Float {
 }
 
 ////////////////// Int //////////////////
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct RustInt {}
 impl RustInt {
     fn new() -> RustInt {
@@ -99,6 +114,11 @@ impl RustInt {
     }
     fn repr(&self) -> String {
         format!("Int()")
+    }
+}
+impl Hash for RustInt {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hash(state)
     }
 }
 impl IntoPy<PyObject> for RustInt {
@@ -124,7 +144,7 @@ impl Int {
     }
 }
 ////////////////// Num //////////////////
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 enum RustNum {
     Int(RustInt),
     Float(RustFloat)
@@ -137,8 +157,16 @@ impl RustNum {
         }
     }
 }
+impl Hash for RustNum {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            RustNum::Int(i) => i.hash(state),
+            RustNum::Float(f) => f.hash(state)
+        }
+    }
+}
 ////////////////// String //////////////////
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct RustStr {}
 impl RustStr {
     fn new() -> RustStr {
@@ -146,6 +174,11 @@ impl RustStr {
     }
     fn repr(&self) -> String {
         format!("Str()")
+    }
+}
+impl Hash for RustStr {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hash(state)
     }
 }
 impl IntoPy<PyObject> for RustStr {
@@ -169,7 +202,7 @@ impl Str {
     }
 }
 ////////////////// Atomic //////////////////
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 enum RustAtomic {
     Num(RustNum),
     Str(RustStr),
@@ -184,7 +217,15 @@ impl RustAtomic {
         }
     }
 }
-
+impl Hash for RustAtomic {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            RustAtomic::Num(n) => n.hash(state),
+            RustAtomic::Str(s) => s.hash(state),
+            RustAtomic::Non(o) => o.hash(state)
+        }
+    }
+}
 impl IntoPy<PyObject> for RustAtomic {
     fn into_py(self, py: Python) -> PyObject {
         py.None()
@@ -215,6 +256,47 @@ impl Atomic {
     }
 }
 
+//////////////// Union ////////////////////////
+#[derive(Clone)]
+struct RustUnion {
+    content: Vec<RustAtomic>,
+}
+impl RustUnion {
+    fn new(content: Vec<RustAtomic>) -> RustUnion {
+        RustUnion {content: content}
+    }
+    fn repr(&self) -> String {
+        let atom_reprs: Vec<String> = self.content.iter().map(|a| a.repr()).collect();
+        format!("Union({{{}}})", atom_reprs.join(", "))
+    }
+}
+impl IntoPy<PyObject> for RustUnion {
+    fn into_py(self, py: Python) -> PyObject {
+        py.None()
+    }
+}
+#[derive(Clone)]
+#[pyclass]
+struct Union {
+    rust_obj: RustUnion,
+}
+
+#[pymethods]
+impl Union {
+    #[new]
+    fn new(obj: &PyList) -> PyResult<Self> {
+        let content = obj
+            .into_iter()
+            .map(|value| {
+                value.extract::<Atomic>().map(|atom| atom.rust_obj).map_err(|err| err.into())
+            })
+            .collect::<Result<Vec<RustAtomic>, PyErr>>()?;
+        Ok(Union { rust_obj: RustUnion {content: content} })
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
 
 #[pymodule]
 fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
@@ -223,5 +305,6 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Str>()?;
     m.add_class::<Non>()?;
     m.add_class::<Atomic>()?;
+    m.add_class::<Union>()?;
     return Ok( () );
 }
