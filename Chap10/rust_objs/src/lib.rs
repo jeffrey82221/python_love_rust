@@ -12,7 +12,7 @@
 //    - [X] Str
 //    - [X] Non
 //    - [X] Atomic
-//    - [ ] Union 
+//    - [X] Union (content a HashSet of RustAtomic)
 //    - [ ] Optional
 // 2. [ ] Let PyClass takes RustObjects as variable. 
 //    - [X] Float
@@ -21,16 +21,16 @@
 //    - [X] Str
 //    - [X] Non
 //    - [X] Atomic
-//    - [ ] Union 
+//    - [X] Union (content a set of Atomic)
 //    - [ ] Optional
 // 3. [ ] Let RustObject be able to be converted to a str ("Int()")
 // 4. [ ] Implement methods on Rust objects and call them from the Python Object. 
 use pyo3::prelude::*;
 use pyo3::exceptions;
-//use std::collections::HashSet;
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
-//use pyo3::types::PySet;
-use pyo3::types::PyList;
+use pyo3::types::PySet;
+//use pyo3::types::PyList;
 
 ////////////////// Non //////////////////
 #[derive(Clone, Eq, PartialEq)]
@@ -41,11 +41,6 @@ impl RustNon {
     }
     fn repr(&self) -> String {
         format!("Non()")
-    }
-}
-impl Hash for RustNon {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash(state)
     }
 }
 impl IntoPy<PyObject> for RustNon {
@@ -79,11 +74,6 @@ impl RustFloat {
         format!("Float()")
     }
 }
-impl Hash for RustFloat {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash(state)
-    }
-}
 impl IntoPy<PyObject> for RustFloat {
     fn into_py(self, py: Python) -> PyObject {
         py.None()
@@ -114,11 +104,6 @@ impl RustInt {
     }
     fn repr(&self) -> String {
         format!("Int()")
-    }
-}
-impl Hash for RustInt {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash(state)
     }
 }
 impl IntoPy<PyObject> for RustInt {
@@ -157,14 +142,6 @@ impl RustNum {
         }
     }
 }
-impl Hash for RustNum {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            RustNum::Int(i) => i.hash(state),
-            RustNum::Float(f) => f.hash(state)
-        }
-    }
-}
 ////////////////// String //////////////////
 #[derive(Clone, Eq, PartialEq)]
 struct RustStr {}
@@ -174,11 +151,6 @@ impl RustStr {
     }
     fn repr(&self) -> String {
         format!("Str()")
-    }
-}
-impl Hash for RustStr {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash(state)
     }
 }
 impl IntoPy<PyObject> for RustStr {
@@ -219,11 +191,7 @@ impl RustAtomic {
 }
 impl Hash for RustAtomic {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            RustAtomic::Num(n) => n.hash(state),
-            RustAtomic::Str(s) => s.hash(state),
-            RustAtomic::Non(o) => o.hash(state)
-        }
+        self.repr().hash(state)
     }
 }
 impl IntoPy<PyObject> for RustAtomic {
@@ -259,10 +227,10 @@ impl Atomic {
 //////////////// Union ////////////////////////
 #[derive(Clone)]
 struct RustUnion {
-    content: Vec<RustAtomic>,
+    content: HashSet<RustAtomic>,
 }
 impl RustUnion {
-    fn new(content: Vec<RustAtomic>) -> RustUnion {
+    fn new(content: HashSet<RustAtomic>) -> RustUnion {
         RustUnion {content: content}
     }
     fn repr(&self) -> String {
@@ -284,13 +252,13 @@ struct Union {
 #[pymethods]
 impl Union {
     #[new]
-    fn new(obj: &PyList) -> PyResult<Self> {
+    fn new(obj: &PySet) -> PyResult<Self> {
         let content = obj
-            .into_iter()
+            .iter()
             .map(|value| {
                 value.extract::<Atomic>().map(|atom| atom.rust_obj).map_err(|err| err.into())
             })
-            .collect::<Result<Vec<RustAtomic>, PyErr>>()?;
+            .collect::<Result<HashSet<RustAtomic>, PyErr>>()?;
         Ok(Union { rust_obj: RustUnion {content: content} })
     }
     fn __repr__(&self) -> String {
@@ -307,4 +275,66 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Atomic>()?;
     m.add_class::<Union>()?;
     return Ok( () );
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+enum Value { //This is some kind of Union type in python.
+    Int(i32),
+    String(String),
+}
+
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Value::Int(n) => n.hash(state),
+            Value::String(s) => s.hash(state)
+        }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_atomic_hash() {
+        let v1 = RustAtomic::Str(RustStr{});
+        let v2 = RustAtomic::Non(RustNon{});
+        let v3 = RustAtomic::Num(RustNum::Int(RustInt{}));
+        let v4 = RustAtomic::Num(RustNum::Float(RustFloat{}));
+        let mut set = HashSet::new();
+        set.insert(v1.clone());
+        assert_eq!(set.len(), 1);
+        set.insert(v2.clone());
+        assert_eq!(set.len(), 2);
+        set.insert(v3.clone());
+        assert_eq!(set.len(), 3);
+        set.insert(v4.clone());
+        assert_eq!(set.len(), 4);
+        set.insert(v1.clone());
+        assert_eq!(set.len(), 4);
+        set.insert(v2.clone());
+        assert_eq!(set.len(), 4);
+        set.insert(v3.clone());
+        assert_eq!(set.len(), 4);
+        set.insert(v4.clone());
+        assert_eq!(set.len(), 4);
+    }
+    #[test]
+    fn test_union() {
+        let mut set = HashSet::new();
+        let v1 = RustAtomic::Num(RustNum::Int(RustInt{}));
+        set.insert(v1.clone());
+        let u = RustUnion{ content: set};
+        assert_eq!(u.content.len(), 1);
+        assert_eq!(u.repr(), "Union({Atomic(Int())})");
+        let mut set = HashSet::new();
+        let v1 = RustAtomic::Num(RustNum::Int(RustInt{}));
+        let v2 = RustAtomic::Num(RustNum::Float(RustFloat{}));
+        set.insert(v1.clone());
+        set.insert(v2.clone());
+        let u = RustUnion{ content: set};
+        assert_eq!(u.content.len(), 2);
+        assert_eq!(u.repr(), "Union({Atomic(Float()), Atomic(Int())})");
+    }
 }
