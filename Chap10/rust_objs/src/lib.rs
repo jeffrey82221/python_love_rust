@@ -25,6 +25,7 @@
 //    - [ ] Optional
 // 3. [ ] Let RustObject be able to be converted to a str ("Int()")
 // 4. [ ] Implement methods on Rust objects and call them from the Python Object. 
+// 5. [ ] UnitTest identical to the jsonschema python package.
 use pyo3::prelude::*;
 use pyo3::exceptions;
 use std::collections::HashSet;
@@ -225,18 +226,18 @@ impl Atomic {
 }
 
 //////////////// Union ////////////////////////
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct RustUnion {
-    content: HashSet<RustAtomic>,
+    content: HashSet<RustJsonSchema>,
 }
 impl RustUnion {
-    fn new(content: HashSet<RustAtomic>) -> RustUnion {
+    fn new(content: HashSet<RustJsonSchema>) -> RustUnion {
         RustUnion {content: content}
     }
     fn repr(&self) -> String {
-        let mut atom_reprs: Vec<String> = self.content.iter().map(|a| a.repr()).collect();
-        atom_reprs.sort();
-        format!("Union({{{}}})", atom_reprs.join(", "))
+        let mut reprs: Vec<String> = self.content.iter().map(|a| a.repr()).collect();
+        reprs.sort();
+        format!("Union({{{}}})", reprs.join(", "))
     }
 }
 impl IntoPy<PyObject> for RustUnion {
@@ -244,6 +245,7 @@ impl IntoPy<PyObject> for RustUnion {
         py.None()
     }
 }
+
 #[derive(Clone)]
 #[pyclass]
 struct Union {
@@ -254,18 +256,46 @@ struct Union {
 impl Union {
     #[new]
     fn new(obj: &PySet) -> PyResult<Self> {
-        let content = obj
-            .iter()
-            .map(|value| {
-                value.extract::<Atomic>().map(|atom| atom.rust_obj).map_err(|err| err.into())
-            })
-            .collect::<Result<HashSet<RustAtomic>, PyErr>>()?;
+        let mut content = HashSet::new();
+        for value in obj.iter() {
+            match (value.extract::<Atomic>(), value.extract::<Union>()){
+                (Ok(a), _) => {
+                    content.insert(RustJsonSchema::Atomic(a.rust_obj));
+                },
+                (_, Ok(u)) => {
+                    content.insert(RustJsonSchema::Union(u.rust_obj));
+                },
+                _ => {
+                    return Err(exceptions::PyTypeError::new_err("Expect an Atomic or Union"));
+                }
+            }
+        }
         Ok(Union { rust_obj: RustUnion {content: content} })
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
     }
 }
+//////////////////// JsonSchema ///////////////////////////
+#[derive(Clone, Eq, PartialEq)]
+enum RustJsonSchema {
+    Atomic(RustAtomic),
+    Union(RustUnion)
+}
+impl RustJsonSchema {
+    fn repr(&self) -> String {
+        match self {
+            RustJsonSchema::Atomic(atom_val) => atom_val.repr(),
+            RustJsonSchema::Union(union_val) => union_val.repr(),
+        }
+    }
+}
+impl Hash for RustJsonSchema {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.repr().hash(state)
+    }
+}
+/////////////// Optional ////////////////////
 
 #[pymodule]
 fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
@@ -278,20 +308,6 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     return Ok( () );
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-enum Value { //This is some kind of Union type in python.
-    Int(i32),
-    String(String),
-}
-
-impl Hash for Value {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Value::Int(n) => n.hash(state),
-            Value::String(s) => s.hash(state)
-        }
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -323,30 +339,48 @@ mod tests {
     }
     #[test]
     fn test_union() {
+        // Test 1: one element union
         let mut set = HashSet::new();
-        let v1 = RustAtomic::Num(RustNum::Int(RustInt{}));
+        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
         set.insert(v1.clone());
         let u = RustUnion{ content: set};
         assert_eq!(u.content.len(), 1);
         assert_eq!(u.repr(), "Union({Atomic(Int())})");
+        // Test 2: two element union
         let mut set = HashSet::new();
-        let v1 = RustAtomic::Num(RustNum::Int(RustInt{}));
-        let v2 = RustAtomic::Num(RustNum::Float(RustFloat{}));
-        
+        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
+        let v2 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
         set.insert(v1.clone());
         set.insert(v2.clone());
         let u = RustUnion{ content: set};
         assert_eq!(u.content.len(), 2);
         assert_eq!(u.repr(), "Union({Atomic(Float()), Atomic(Int())})");
+        // Test 3: duplicate element union
         let mut set = HashSet::new();
-        let v1 = RustAtomic::Num(RustNum::Int(RustInt{}));
-        let v2 = RustAtomic::Num(RustNum::Float(RustFloat{}));
-        let v3 = RustAtomic::Num(RustNum::Float(RustFloat{}));
+        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
+        let v2 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
+        let v3 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
         set.insert(v1.clone());
         set.insert(v2.clone());
         set.insert(v3.clone());
         let u = RustUnion{ content: set};
         assert_eq!(u.content.len(), 2);
         assert_eq!(u.repr(), "Union({Atomic(Float()), Atomic(Int())})");
+        // Test 4: nested union
+        let mut set = HashSet::new();
+        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
+        let v2 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
+        set.insert(v1.clone());
+        set.insert(v2.clone());
+        let u = RustJsonSchema::Union(RustUnion{ content: set});
+        let mut set2 = HashSet::new();
+        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
+        let v2 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
+        set2.insert(u.clone());
+        set2.insert(v1.clone());
+        set2.insert(v2.clone());
+        let u2 = RustUnion{ content: set2};
+        assert_eq!(u2.content.len(), 3);
+        assert_eq!(u2.repr(), "Union({Atomic(Float()), Atomic(Int()), Union({Atomic(Float()), Atomic(Int())})})");
     }
 }
