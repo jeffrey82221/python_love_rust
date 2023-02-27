@@ -6,19 +6,23 @@
 // - When doing `|` operation in Python domain, `or` in Rust domain should be called.  
 // TODO:
 // 1. [ ] build pure rust objects 
-//    - [ ] Float
-//    - [ ] Int
-//    - [ ] Num 
-//    - [ ] Str
-//    - [ ] None
-//    - [ ] Atomic
+//    - [X] Float
+//    - [X] Int
+//    - [X] Num 
+//    - [X] Str
+//    - [X] Non
+//    - [X] Atomic
+//    - [ ] Union 
+//    - [ ] Optional
 // 2. [ ] Let PyClass takes RustObjects as variable. 
-//    - [ ] Float
-//    - [ ] Int
-//    - [ ] Num 
-//    - [ ] Str
-//    - [ ] None
-//    - [ ] Atomic
+//    - [X] Float
+//    - [X] Int
+//    - [X] Num 
+//    - [X] Str
+//    - [X] Non
+//    - [X] Atomic
+//    - [ ] Union 
+//    - [ ] Optional
 // 3. [ ] Let RustObject be able to be converted to a str ("Int()")
 // 4. [ ] Implement methods on Rust objects and call them from the Python Object. 
 use pyo3::prelude::*;
