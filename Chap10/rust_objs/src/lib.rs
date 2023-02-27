@@ -13,7 +13,11 @@
 //    - [X] Non
 //    - [X] Atomic
 //    - [X] Union (content a HashSet of RustAtomic)
+//         FIXME: Union with Union as element does not make sense, 
+//         but Union with Array, Atomic, or Record does make sense. 
 //    - [ ] Optional
+//    - [ ] Array 
+//    - [ ] Record
 // 2. [ ] Let PyClass takes RustObjects as variable. 
 //    - [X] Float
 //    - [X] Int
@@ -23,6 +27,8 @@
 //    - [X] Atomic
 //    - [X] Union (content a set of Atomic)
 //    - [ ] Optional
+//    - [ ] Array 
+//    - [ ] Record
 // 3. [ ] Let RustObject be able to be converted to a str ("Int()")
 // 4. [ ] Implement methods on Rust objects and call them from the Python Object. 
 // 5. [ ] UnitTest identical to the jsonschema python package.
