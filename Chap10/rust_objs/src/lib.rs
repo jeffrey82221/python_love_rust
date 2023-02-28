@@ -674,46 +674,39 @@ mod tests {
     use std::collections::HashSet;
     #[test]
     fn test_union() {
+        let int_atom = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
+        let float_atom = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
+        let float_atom2 = float_atom.clone();
         // Test 1: one element union
         let mut set = HashSet::new();
-        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
-        set.insert(v1.clone());
+        set.insert(int_atom.clone());
         let u = RustUnion{ content: set};
         assert_eq!(u.content.len(), 1);
         assert_eq!(u.repr(), "Union({Atomic(Int())})");
         // Test 2: two element union
         let mut set = HashSet::new();
-        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
-        let v2 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
-        set.insert(v1.clone());
-        set.insert(v2.clone());
+        set.insert(int_atom.clone());
+        set.insert(float_atom.clone());
         let u = RustUnion{ content: set};
         assert_eq!(u.content.len(), 2);
         assert_eq!(u.repr(), "Union({Atomic(Float()), Atomic(Int())})");
         // Test 3: duplicate element union
         let mut set = HashSet::new();
-        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
-        let v2 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
-        let v3 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
-        set.insert(v1.clone());
-        set.insert(v2.clone());
-        set.insert(v3.clone());
+        set.insert(int_atom.clone());
+        set.insert(float_atom.clone());
+        set.insert(float_atom2.clone());
         let u = RustUnion{ content: set};
         assert_eq!(u.content.len(), 2);
         assert_eq!(u.repr(), "Union({Atomic(Float()), Atomic(Int())})");
         // Test 4: nested union
         let mut set = HashSet::new();
-        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
-        let v2 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
-        set.insert(v1.clone());
-        set.insert(v2.clone());
+        set.insert(int_atom.clone());
+        set.insert(float_atom.clone());
         let u = RustJsonSchema::Union(RustUnion{ content: set});
         let mut set2 = HashSet::new();
-        let v1 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
-        let v2 = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
         set2.insert(u.clone());
-        set2.insert(v1.clone());
-        set2.insert(v2.clone());
+        set2.insert(int_atom.clone());
+        set2.insert(float_atom.clone());
         let u2 = RustUnion{ content: set2};
         assert_eq!(u2.content.len(), 3);
         assert_eq!(u2.repr(), "Union({Atomic(Float()), Atomic(Int()), Union({Atomic(Float()), Atomic(Int())})})");
