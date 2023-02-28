@@ -4,7 +4,9 @@
 // - A `reduce` method operate on the Rust domain (input: json str list, output: Object str)
 // - The Object str can be transformed to Python object in Python domain. 
 // - When doing `|` operation in Python domain, `or` in Rust domain should be called.  
-// TODO:
+// REFACTOR TODO:
+// - [ ] seperate RustObjs and PythonObjs
+// FEAT TODO:
 // 1. [ ] build pure rust objects 
 //    - [X] Float
 //    - [X] Int
@@ -275,11 +277,12 @@ struct Array {
 impl Array {
     #[new]
     fn new(obj: &PyAny) -> PyResult<Self> {
-        let rust_schema = match (obj.extract::<Atomic>(), obj.extract::<Array>(), obj.extract::<Union>()) {
-            (Ok(atom), _, _) => RustJsonSchema::Atomic(atom.rust_obj),
-            (_, Ok(arr), _) => RustJsonSchema::Array(Box::new(arr.rust_obj)),
-            (_, _, Ok(uni)) => RustJsonSchema::Union(uni.rust_obj),
-            _ => return Err(exceptions::PyTypeError::new_err("Expect an Atomic, Array, or Union"))
+        let rust_schema = match (obj.extract::<Atomic>(), obj.extract::<Array>(), obj.extract::<Record>(), obj.extract::<Union>()) {
+            (Ok(atom), _, _, _) => RustJsonSchema::Atomic(atom.rust_obj),
+            (_, Ok(arr), _, _) => RustJsonSchema::Array(Box::new(arr.rust_obj)),
+            (_, _, Ok(rec), _) => RustJsonSchema::Record(rec.rust_obj),
+            (_, _, _, Ok(uni)) => RustJsonSchema::Union(uni.rust_obj),
+            _ => return Err(exceptions::PyTypeError::new_err("Expect an Atomic, Array, Record, or Union"))
         };
         Ok(Array { rust_obj: RustArray{content: rust_schema} })
     }
