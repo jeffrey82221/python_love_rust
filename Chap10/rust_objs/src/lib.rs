@@ -280,6 +280,93 @@ impl Array {
 }
 //////////////////// Record ///////////////////////////
 
+
+//////////////// Union + Optional (implement python interface only) ////////////////////////
+
+#[derive(Clone, Eq, PartialEq)]
+struct RustUnion {
+    content: HashSet<RustJsonSchema>,
+}
+impl RustUnion {
+    fn new(content: HashSet<RustJsonSchema>) -> RustUnion {
+        RustUnion {content: content}
+    }
+    fn repr(&self) -> String {
+        let mut has_non: u8 = 0;
+        let mut total_cnt: u8 = 0;
+        let mut reprs: Vec<String> = self.content.iter().map(|a| {
+            let s = a.repr();
+            if s == "Atomic(Non())" {
+                has_non += 1;
+            }
+            total_cnt += 1;
+            s
+        }).collect();
+        if (has_non > 0) & (total_cnt == 2) {
+            reprs.retain(|x| *x != "Atomic(Non())");
+            format!("Optional({})", reprs[0])
+        } else {
+            reprs.sort();
+            format!("Union({{{}}})", reprs.join(", "))
+        }
+        
+    }
+}
+impl IntoPy<PyObject> for RustUnion {
+    fn into_py(self, py: Python) -> PyObject {
+        py.None()
+    }
+}
+
+#[derive(Clone)]
+#[pyclass]
+struct Union {
+    rust_obj: RustUnion,
+}
+
+#[pymethods]
+impl Union {
+    #[new]
+    fn new(obj: &PySet) -> PyResult<Self> {
+        let mut content = HashSet::new();
+        for value in obj.iter() {
+            match (value.extract::<Atomic>(), value.extract::<Union>()){
+                (Ok(a), _) => {
+                    content.insert(RustJsonSchema::Atomic(a.rust_obj));
+                },
+                (_, Ok(u)) => {
+                    content.insert(RustJsonSchema::Union(u.rust_obj));
+                },
+                _ => {
+                    return Err(exceptions::PyTypeError::new_err("Expect an Atomic or Union"));
+                }
+            }
+        }
+        Ok(Union { rust_obj: RustUnion {content: content} })
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
+#[derive(Clone)]
+#[pyclass]
+struct Optional {
+    rust_obj: RustUnion,
+}
+
+#[pymethods]
+impl Optional {
+    #[new]
+    fn new(obj: &Atomic) -> PyResult<Self> {
+        let mut content = HashSet::new();
+        content.insert(RustJsonSchema::Atomic(obj.rust_obj.clone()));
+        content.insert(RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})));
+        Ok(Optional { rust_obj: RustUnion {content: content} })
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
 //////////////////// JsonSchema ///////////////////////////
 #[derive(Clone, Eq, PartialEq)]
 enum RustJsonSchema {
@@ -381,93 +468,6 @@ impl Hash for RustJsonSchema {
         self.repr().hash(state)
     }
 }
-//////////////// Union + Optional (implement python interface only) ////////////////////////
-
-#[derive(Clone, Eq, PartialEq)]
-struct RustUnion {
-    content: HashSet<RustJsonSchema>,
-}
-impl RustUnion {
-    fn new(content: HashSet<RustJsonSchema>) -> RustUnion {
-        RustUnion {content: content}
-    }
-    fn repr(&self) -> String {
-        let mut has_non: u8 = 0;
-        let mut total_cnt: u8 = 0;
-        let mut reprs: Vec<String> = self.content.iter().map(|a| {
-            let s = a.repr();
-            if s == "Atomic(Non())" {
-                has_non += 1;
-            }
-            total_cnt += 1;
-            s
-        }).collect();
-        if (has_non > 0) & (total_cnt == 2) {
-            reprs.retain(|x| *x != "Atomic(Non())");
-            format!("Optional({})", reprs[0])
-        } else {
-            reprs.sort();
-            format!("Union({{{}}})", reprs.join(", "))
-        }
-        
-    }
-}
-impl IntoPy<PyObject> for RustUnion {
-    fn into_py(self, py: Python) -> PyObject {
-        py.None()
-    }
-}
-
-#[derive(Clone)]
-#[pyclass]
-struct Union {
-    rust_obj: RustUnion,
-}
-
-#[pymethods]
-impl Union {
-    #[new]
-    fn new(obj: &PySet) -> PyResult<Self> {
-        let mut content = HashSet::new();
-        for value in obj.iter() {
-            match (value.extract::<Atomic>(), value.extract::<Union>()){
-                (Ok(a), _) => {
-                    content.insert(RustJsonSchema::Atomic(a.rust_obj));
-                },
-                (_, Ok(u)) => {
-                    content.insert(RustJsonSchema::Union(u.rust_obj));
-                },
-                _ => {
-                    return Err(exceptions::PyTypeError::new_err("Expect an Atomic or Union"));
-                }
-            }
-        }
-        Ok(Union { rust_obj: RustUnion {content: content} })
-    }
-    fn __repr__(&self) -> String {
-        self.rust_obj.repr()
-    }
-}
-#[derive(Clone)]
-#[pyclass]
-struct Optional {
-    rust_obj: RustUnion,
-}
-
-#[pymethods]
-impl Optional {
-    #[new]
-    fn new(obj: &Atomic) -> PyResult<Self> {
-        let mut content = HashSet::new();
-        content.insert(RustJsonSchema::Atomic(obj.rust_obj.clone()));
-        content.insert(RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})));
-        Ok(Optional { rust_obj: RustUnion {content: content} })
-    }
-    fn __repr__(&self) -> String {
-        self.rust_obj.repr()
-    }
-}
-
 #[pymodule]
 fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Int>()?;
