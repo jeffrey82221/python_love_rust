@@ -209,11 +209,7 @@ impl RustAtomic {
         }
     }
 }
-impl Hash for RustAtomic {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.repr().hash(state)
-    }
-}
+
 impl IntoPy<PyObject> for RustAtomic {
     fn into_py(self, py: Python) -> PyObject {
         py.None()
@@ -489,31 +485,6 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
 mod tests {
     use super::*;
     use std::collections::HashSet;
-
-    #[test]
-    fn test_atomic_hash() {
-        let v1 = RustAtomic::Str(RustStr{});
-        let v2 = RustAtomic::Non(RustNon{});
-        let v3 = RustAtomic::Num(RustNum::Int(RustInt{}));
-        let v4 = RustAtomic::Num(RustNum::Float(RustFloat{}));
-        let mut set = HashSet::new();
-        set.insert(v1.clone());
-        assert_eq!(set.len(), 1);
-        set.insert(v2.clone());
-        assert_eq!(set.len(), 2);
-        set.insert(v3.clone());
-        assert_eq!(set.len(), 3);
-        set.insert(v4.clone());
-        assert_eq!(set.len(), 4);
-        set.insert(v1.clone());
-        assert_eq!(set.len(), 4);
-        set.insert(v2.clone());
-        assert_eq!(set.len(), 4);
-        set.insert(v3.clone());
-        assert_eq!(set.len(), 4);
-        set.insert(v4.clone());
-        assert_eq!(set.len(), 4);
-    }
     #[test]
     fn test_union() {
         // Test 1: one element union
