@@ -18,7 +18,7 @@
 //    - [X] Optional
 //    - [X] Array 
 //    - [ ] Record
-//         - [ ] Basic Representation 
+//         - [X] Basic Representation 
 //         - [ ] Uniform Representation (Merge all schemas)
 //         - [ ] Dynamic Representation 1 (show fields and their schemas with fields ordered by occurrence): Record()
 //         - [ ] Dynamic Representation 2 (show only the field combination and their schemas as different Records):  Union({Record(xx), Record(xx)})
@@ -59,6 +59,7 @@ use std::collections::HashSet;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use pyo3::types::PySet;
+use pyo3::types::PyDict;
 
 ////////////////// Non //////////////////
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -326,6 +327,34 @@ impl IntoPy<PyObject> for RustRecord {
         py.None()
     }
 }
+#[derive(Clone)]
+#[pyclass]
+struct Record {
+    rust_obj: RustRecord,
+}
+
+#[pymethods]
+impl Record {
+    #[new]
+    fn new(obj: &PyDict) -> PyResult<Self> {
+        let mut content = HashMap::new();
+        for (key, value) in obj.iter() {
+            let key_str: String = key.extract().unwrap();
+            let rust_schema = match (value.extract::<Atomic>(), value.extract::<Array>(), value.extract::<Record>(), value.extract::<Union>()) {
+                (Ok(atom), _, _, _) => RustJsonSchema::Atomic(atom.rust_obj),
+                (_, Ok(arr), _, _) => RustJsonSchema::Array(Box::new(arr.rust_obj)),
+                (_, _, Ok(rec), _) => RustJsonSchema::Record(rec.rust_obj),
+                (_, _, _, Ok(uni)) => RustJsonSchema::Union(uni.rust_obj),
+                _ => return Err(exceptions::PyTypeError::new_err("Expect Atomic, Array, Record, or Union"))
+            };
+            content.insert(key_str, rust_schema);
+        }
+        Ok(Record { rust_obj: RustRecord::new(content)})
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
 
 //////////////// Union + Optional (implement python interface only) ////////////////////////
 #[derive(Clone, Eq, PartialEq)]
@@ -373,18 +402,26 @@ impl Union {
     #[new]
     fn new(obj: &PySet) -> PyResult<Self> {
         let mut content = HashSet::new();
+        let mut cnt: u32 = 0;
         for value in obj.iter() {
-            match (value.extract::<Atomic>(), value.extract::<Union>()){
-                (Ok(a), _) => {
+            cnt += 1;
+            match (value.extract::<Atomic>(), value.extract::<Array>(), value.extract::<Record>()){
+                (Ok(a), _, _) => {
                     content.insert(RustJsonSchema::Atomic(a.rust_obj));
                 },
-                (_, Ok(u)) => {
-                    content.insert(RustJsonSchema::Union(u.rust_obj));
+                (_, Ok(a), _) => {
+                    content.insert(RustJsonSchema::Array(Box::new(a.rust_obj)));
+                },
+                (_, _, Ok(a)) => {
+                    content.insert(RustJsonSchema::Record(a.rust_obj));
                 },
                 _ => {
-                    return Err(exceptions::PyTypeError::new_err("Expect an Atomic or Union"));
+                    return Err(exceptions::PyTypeError::new_err("Expect an Atomic, Array, or Record"));
                 }
             }
+        }
+        if cnt < 2 {
+            panic!("# of content of Union should >= 2")
         }
         Ok(Union { rust_obj: RustUnion {content: content} })
     }
@@ -401,9 +438,15 @@ struct Optional {
 #[pymethods]
 impl Optional {
     #[new]
-    fn new(obj: &Atomic) -> PyResult<Self> {
+    fn new(obj: &PyAny) -> PyResult<Self> {
         let mut content = HashSet::new();
-        content.insert(RustJsonSchema::Atomic(obj.rust_obj.clone()));
+        let rust_schema = match (obj.extract::<Atomic>(), obj.extract::<Array>(), obj.extract::<Record>()){
+            (Ok(a), _, _) => RustJsonSchema::Atomic(a.rust_obj.clone()),
+            (_, Ok(a), _) => RustJsonSchema::Array(Box::new(a.rust_obj.clone())),
+            (_, _, Ok(a)) => RustJsonSchema::Record(a.rust_obj.clone()),
+            _ => return Err(exceptions::PyTypeError::new_err("Expect an Atomic, Array, or Record"))
+        };
+        content.insert(rust_schema);
         content.insert(RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})));
         Ok(Optional { rust_obj: RustUnion {content: content} })
     }
@@ -615,6 +658,7 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Non>()?;
     m.add_class::<Atomic>()?;
     m.add_class::<Array>()?;
+    m.add_class::<Record>()?;
     m.add_class::<Union>()?;
     m.add_class::<Optional>()?;
     return Ok( () );
