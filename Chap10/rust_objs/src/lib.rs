@@ -18,6 +18,10 @@
 //    - [X] Optional
 //    - [X] Array 
 //    - [ ] Record
+//         - [ ] Basic Representation 
+//         - [ ] Uniform Representation (Merge all schemas)
+//         - [ ] Dynamic Representation 1 (show fields and their schemas with fields ordered by occurrence): Record()
+//         - [ ] Dynamic Representation 2 (show only the field combination and their schemas as different Records):  Union({Record(xx), Record(xx)})
 // 2. [ ] Let PyClass takes RustObjects as variable. 
 //    - [X] Float
 //    - [X] Int
@@ -49,8 +53,10 @@
 use pyo3::prelude::*;
 use pyo3::exceptions;
 use std::collections::HashSet;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use pyo3::types::PySet;
+
 
 ////////////////// Non //////////////////
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -279,7 +285,44 @@ impl Array {
     }
 }
 //////////////////// Record ///////////////////////////
-
+#[derive(Clone)]
+struct RustRecord {
+    // A field schema recorder:
+    field_schema: HashMap<String, RustJsonSchema>,
+    // A field combination counter: 
+    field_comb_counter: HashMap<String, u32>,
+    // A field counter:
+    field_counter: HashMap<String, u32>
+}
+impl RustRecord {
+    fn new(field_schema: HashMap<String, RustJsonSchema>) -> RustRecord {
+        let mut field_comb_counter = HashMap::new();
+        let keys: HashSet<String> = field_schema.keys().cloned().collect();
+        let mut key_vec: Vec<String> = keys.into_iter().collect();
+        key_vec.sort();
+        field_comb_counter.insert(key_vec.join(", "), 1);
+        let mut field_counter = HashMap::new();
+        for key in field_schema.keys() {
+            field_counter.insert(key.clone(), 1);
+        }
+        RustRecord {
+            field_schema: field_schema,
+            field_comb_counter: field_comb_counter,
+            field_counter: field_counter
+        }
+    }
+    fn repr(&self) -> String {
+        let strings: Vec<String> = self.field_schema.iter()
+            .map(|(key, value)| format!("\"{}\": {}", key, value.repr()))
+            .collect();
+        format!("Record({{{}}})", strings.join(", "))
+    }
+}
+impl IntoPy<PyObject> for RustRecord {
+    fn into_py(self, py: Python) -> PyObject {
+        py.None()
+    }
+}
 
 //////////////// Union + Optional (implement python interface only) ////////////////////////
 
@@ -626,5 +669,15 @@ mod tests {
         let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
         let uni2 = str_atom.merge(non_atom);
         assert_eq!(uni1.merge(uni2).repr(), "Optional(Atomic(Str()))");
+    }
+    #[test]
+    fn test_record() {
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let mut map = HashMap::new();
+        map.insert("banana".to_owned(), non_atom);
+        map.insert("apple".to_owned(), str_atom);
+        let rr = RustRecord::new(map);
+        assert_eq!(rr.repr(), "Record({\"banana\": Atomic(Non()), \"apple\": Atomic(Str())})")
     }
 }
