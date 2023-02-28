@@ -5,9 +5,9 @@
 // - The Object str can be transformed to Python object in Python domain. 
 // - When doing `|` operation in Python domain, `or` in Rust domain should be called.  
 // REFACTOR TODO:
-// - [ ] seperate RustObjs and PythonObjs
+// - [ ] Seperate RustObjs and PythonObjs
 // FEAT TODO:
-// 1. [ ] build pure rust objects 
+// 1. [ ] Build pure rust objects 
 //    - [X] Float
 //    - [X] Int
 //    - [X] Num 
@@ -21,10 +21,11 @@
 //    - [X] Array 
 //    - [ ] Record
 //         - [X] Basic Representation 
-//         - [ ] Uniform Representation (Merge all schemas)
-//         - [ ] Dynamic Representation 1 (show fields and their schemas with fields ordered by occurrence): Record()
-//         - [ ] Dynamic Representation 2 (show only the field combination and their schemas as different Records):  Union({Record(xx), Record(xx)})
-// 2. [ ] Let PyClass takes RustObjects as variable. 
+//         - [?] UniformRecord: Uniform Representation (Merge all schemas)
+//         - [ ] Record(): Dynamic Representation 1 (show fields and their schemas with fields ordered by occurrence): Record()
+//         - [ ] Union({Record()}): Dynamic Representation 2 (show only the field combination and their schemas as different Records):  Union({Record(xx), Record(xx)})
+//         - [ ] Auto decide representation by length. 
+// 2. [X] Let PyClass takes RustObjects as variable. 
 //    - [X] Float
 //    - [X] Int
 //    - [X] Num 
@@ -34,7 +35,7 @@
 //    - [X] Union (content a set of Atomic)
 //    - [X] Optional
 //    - [X] Array 
-//    - [ ] Record
+//    - [X] Record 
 // 3. [X] Implement | operation 
 //    - [X] Atomic + Atomic -> Atomic / Union
 //    - [X] Atomic + Union -> Union
