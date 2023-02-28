@@ -33,20 +33,23 @@
 //    - [X] Optional
 //    - [X] Array 
 //    - [ ] Record
-// 3. [ ] Implement | operation 
+// 3. [X] Implement | operation 
 //    - [X] Atomic + Atomic -> Atomic / Union
 //    - [X] Atomic + Union -> Union
 //    - [X] Atomic + Array -> Union 
-//    - [X] Union + Atomic -> Union
-//    - [X] Union + Union -> Union 
-//    - [X] Union + Array -> Union
+//    - [X] Atomic + Record -> Union 
 //    - [X] Array + Atomic -> Union
 //    - [X] Array + Union -> Union
 //    - [X] Array + Array -> Array[xx]
-//    - [ ] Record + Atomic -> Union
-//    - [ ] Record + Array -> Union
-//    - [ ] Record + Record -> Record
-//    - [ ] Record + Union -> Union 
+//    - [X] Array + Record -> Union 
+//    - [X] Record + Atomic -> Union
+//    - [X] Record + Array -> Union
+//    - [X] Record + Record -> Record
+//    - [X] Record + Union -> Union 
+//    - [X] Union + Atomic -> Union
+//    - [X] Union + Union -> Union 
+//    - [X] Union + Array -> Union
+//    - [X] Union + Record -> Union
 // 4. [ ] Let RustObject be able to be converted to a str ("Int()")
 // 5. [ ] Implement methods on Rust objects and call them from the Python Object. 
 // 6. [ ] UnitTest identical to the jsonschema python package.
@@ -56,7 +59,6 @@ use std::collections::HashSet;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use pyo3::types::PySet;
-
 
 ////////////////// Non //////////////////
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -285,7 +287,7 @@ impl Array {
     }
 }
 //////////////////// Record ///////////////////////////
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct RustRecord {
     // A field schema recorder:
     field_schema: HashMap<String, RustJsonSchema>,
@@ -312,9 +314,10 @@ impl RustRecord {
         }
     }
     fn repr(&self) -> String {
-        let strings: Vec<String> = self.field_schema.iter()
+        let mut strings: Vec<String> = self.field_schema.iter()
             .map(|(key, value)| format!("\"{}\": {}", key, value.repr()))
             .collect();
+        strings.sort();
         format!("Record({{{}}})", strings.join(", "))
     }
 }
@@ -325,7 +328,6 @@ impl IntoPy<PyObject> for RustRecord {
 }
 
 //////////////// Union + Optional (implement python interface only) ////////////////////////
-
 #[derive(Clone, Eq, PartialEq)]
 struct RustUnion {
     content: HashSet<RustJsonSchema>,
@@ -352,7 +354,6 @@ impl RustUnion {
             reprs.sort();
             format!("Union({{{}}})", reprs.join(", "))
         }
-        
     }
 }
 impl IntoPy<PyObject> for RustUnion {
@@ -415,15 +416,16 @@ impl Optional {
 enum RustJsonSchema {
     Atomic(RustAtomic),
     Array(Box<RustArray>),
-    // Record
+    Record(RustRecord),
     Union(RustUnion) // Advance Json Schema
 }
 impl RustJsonSchema {
     fn repr(&self) -> String {
         match self {
             RustJsonSchema::Atomic(atom_val) => atom_val.repr(),
-            RustJsonSchema::Union(union_val) => union_val.repr(),
             RustJsonSchema::Array(array_val) => array_val.repr(),
+            RustJsonSchema::Record(record_val) => record_val.repr(),
+            RustJsonSchema::Union(union_val) => union_val.repr(),
         }
     }
     fn merge(self, other:RustJsonSchema) -> RustJsonSchema {
@@ -446,6 +448,12 @@ impl RustJsonSchema {
                         content.insert(other.clone());
                         RustJsonSchema::Union(RustUnion {content: content})                        
                     },
+                    RustJsonSchema::Record(_) => {                        
+                        let mut content = HashSet::new();
+                        content.insert(self.clone());
+                        content.insert(other.clone());
+                        RustJsonSchema::Union(RustUnion {content: content})                        
+                    },
                     RustJsonSchema::Union(_r) => {
                         let mut content = HashSet::new();
                         content.extend(_r.content);
@@ -462,17 +470,25 @@ impl RustJsonSchema {
                     RustJsonSchema::Array(_r) => {
                         RustJsonSchema::Array( Box::new(RustArray { content: l.content.clone().merge(_r.clone().content)} ))
                     },
+                    RustJsonSchema::Record(_) => {                        
+                        let mut content = HashSet::new();
+                        content.insert(self.clone());
+                        content.insert(other.clone());
+                        RustJsonSchema::Union(RustUnion {content: content})                        
+                    },
                     RustJsonSchema::Union(_r) => {
-                        // FIXME: need to merge Array to the content of Union one-by-one such that Array can be merged. 
                         let mut content = HashSet::new();
                         let mut has_array: u8 = 0;
                         for jsonschema in _r.content.iter() {
                             match jsonschema {
+                                RustJsonSchema::Atomic(_) => {
+                                    content.insert(jsonschema.clone());
+                                },
                                 RustJsonSchema::Array(_) => {
                                     content.insert(self.clone().merge(jsonschema.clone()));
                                     has_array += 1;
-                                }, 
-                                RustJsonSchema::Atomic(_) => {
+                                },
+                                RustJsonSchema::Record(_) => {
                                     content.insert(jsonschema.clone());
                                 },
                                 RustJsonSchema::Union(_u) => {
@@ -483,7 +499,84 @@ impl RustJsonSchema {
                         if has_array == 0 {
                             content.insert(self.clone());
                         }
-                        RustJsonSchema::Union(RustUnion {content: content})                   
+                        RustJsonSchema::Union(RustUnion {content: content})      
+                    },
+                }
+            },
+            RustJsonSchema::Record(ref l) => {
+                match other {
+                    RustJsonSchema::Atomic(_) => {
+                        other.merge(self)
+                    },
+                    RustJsonSchema::Array(_) => {
+                        other.merge(self)
+                    },
+                    RustJsonSchema::Record(_r) => {
+                        // A field schema recorder:
+                        let mut field_schema = l.field_schema.clone();
+                        for (key, r_schema) in _r.field_schema.iter() {
+                            match l.field_schema.get(key) {
+                                Some(l_schema) => {
+                                    let merged_schema = l_schema.clone().merge(r_schema.clone());
+                                    field_schema.insert(key.to_string(), merged_schema);
+                                },
+                                None => {
+                                    field_schema.insert(key.to_string(), r_schema.clone());
+                                }
+                            }
+                        }
+                        let mut field_counter = l.field_counter.clone();
+                        for (key, r_cnt) in _r.field_counter.iter() {
+                            match l.field_counter.get(key) {
+                                Some(l_cnt) => {
+                                    field_counter.insert(key.to_string(), r_cnt.clone() + l_cnt.clone());
+                                },
+                                None => {
+                                    field_counter.insert(key.to_string(), r_cnt.clone());
+                                }
+                            }
+                        }
+                        let mut field_comb_counter = l.field_comb_counter.clone();
+                        for (key, r_cnt) in _r.field_comb_counter.iter() {
+                            match l.field_comb_counter.get(key) {
+                                Some(l_cnt) => {
+                                    field_comb_counter.insert(key.to_string(), r_cnt.clone() + l_cnt.clone());
+                                },
+                                None => {
+                                    field_comb_counter.insert(key.to_string(), r_cnt.clone());
+                                }
+                            }
+                        }
+                        RustJsonSchema::Record(RustRecord{
+                            field_schema: field_schema,
+                            field_comb_counter: field_comb_counter,
+                            field_counter: field_counter
+                        })
+                    },
+                    RustJsonSchema::Union(_r) => {
+                        let mut content = HashSet::new();
+                        let mut has_record: u8 = 0;
+                        for jsonschema in _r.content.iter() {
+                            match jsonschema {
+                                RustJsonSchema::Atomic(_) => {
+                                    content.insert(jsonschema.clone());
+                                },
+                                RustJsonSchema::Array(_) => {
+                                    content.insert(jsonschema.clone());
+                                },
+                                RustJsonSchema::Record(_) => {
+                                    content.insert(self.clone().merge(jsonschema.clone()));
+                                    has_record += 1;
+                                },
+                                RustJsonSchema::Union(_u) => {
+                                    content.extend(_u.content.clone());
+                                }
+                            }
+                        }
+                        if has_record == 0 {
+                            content.insert(self.clone());
+                        }
+                        RustJsonSchema::Union(RustUnion {content: content})   
                     },
                 }
             },
@@ -493,6 +586,9 @@ impl RustJsonSchema {
                         other.merge(self)
                     },
                     RustJsonSchema::Array(_) => {
+                        other.merge(self)
+                    },
+                    RustJsonSchema::Record(_) => {
                         other.merge(self)
                     },
                     RustJsonSchema::Union(_r) => {
@@ -669,15 +765,108 @@ mod tests {
         let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
         let uni2 = str_atom.merge(non_atom);
         assert_eq!(uni1.merge(uni2).repr(), "Optional(Atomic(Str()))");
+        // Record | Union 
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let mut map = HashMap::new();
+        map.insert("banana".to_owned(), non_atom);
+        map.insert("apple".to_owned(), str_atom);
+        let rr1 = RustJsonSchema::Record(RustRecord::new(map));
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let uni1 = str_atom.merge(non_atom).merge(rr1.clone());
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let mut map = HashMap::new();
+        map.insert("can".to_owned(), str_atom);
+        map.insert("banana".to_owned(), non_atom);
+        let rr2 = RustJsonSchema::Record(RustRecord::new(map));
+        assert_eq!(rr2.merge(uni1).repr(), "Union({Atomic(Non()), Atomic(Str()), Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non()), \"can\": Atomic(Str())})})");
+        // Record | Record
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let mut map = HashMap::new();
+        map.insert("banana".to_owned(), non_atom);
+        map.insert("apple".to_owned(), str_atom);
+        let rr1 = RustJsonSchema::Record(RustRecord::new(map));
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let mut map = HashMap::new();
+        map.insert("can".to_owned(), str_atom);
+        map.insert("banana".to_owned(), non_atom);
+        let rr2 = RustJsonSchema::Record(RustRecord::new(map));
+        assert_eq!(rr1.clone().merge(rr2.clone()).repr(), "Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non()), \"can\": Atomic(Str())})");
+        let r = rr1.clone().merge(rr2.clone());
+        match r {
+            RustJsonSchema::Record(record) => {
+                assert_eq!(record.field_counter.len(), 3);
+                match record.field_counter.get("apple") {
+                    Some(cnt) => {
+                        assert_eq!(cnt.to_owned(), 1);
+                    },
+                    None => {
+                        panic!();
+                    }
+                }
+                match record.field_counter.get("banana") {
+                    Some(cnt) => {
+                        assert_eq!(cnt.to_owned(), 2);
+                    },
+                    None => {
+                        panic!();
+                    }
+                }
+                match record.field_counter.get("can") {
+                    Some(cnt) => {
+                        assert_eq!(cnt.to_owned(), 1);
+                    },
+                    None => {
+                        panic!();
+                    }
+                }
+                assert_eq!(record.field_comb_counter.len(), 2);
+                match record.field_comb_counter.get("apple, banana") {
+                    Some(cnt) => {
+                        assert_eq!(cnt.to_owned(), 1);
+                    },
+                    None => {
+                        panic!();
+                    }
+                }
+                match record.field_comb_counter.get("banana, can") {
+                    Some(cnt) => {
+                        assert_eq!(cnt.to_owned(), 1);
+                    },
+                    None => {
+                        panic!();
+                    }
+                }
+            }
+            _ => {
+                panic!();
+            }
+        }
     }
+
     #[test]
     fn test_record() {
+        // Test constructor from RustRecord
         let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
         let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
         let mut map = HashMap::new();
         map.insert("banana".to_owned(), non_atom);
         map.insert("apple".to_owned(), str_atom);
         let rr = RustRecord::new(map);
-        assert_eq!(rr.repr(), "Record({\"banana\": Atomic(Non()), \"apple\": Atomic(Str())})")
+        assert_eq!(rr.repr(), "Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non())})");
+        assert_eq!(rr.field_comb_counter.keys().len(), 1);
+        assert_eq!(rr.field_counter.keys().len(), 2);
+        // Test constructor from RustJsonSchema
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let mut map = HashMap::new();
+        map.insert("banana".to_owned(), non_atom);
+        map.insert("apple".to_owned(), str_atom);
+        let rr = RustJsonSchema::Record(RustRecord::new(map));
+        assert_eq!(rr.repr(), "Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non())})");
     }
 }
