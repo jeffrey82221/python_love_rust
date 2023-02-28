@@ -49,7 +49,7 @@ use std::hash::{Hash, Hasher};
 use pyo3::types::PySet;
 
 ////////////////// Non //////////////////
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 struct RustNon {}
 impl RustNon {
     fn new() -> RustNon {
@@ -64,7 +64,7 @@ impl IntoPy<PyObject> for RustNon {
         py.None()
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 #[pyclass]
 struct Non {
     rust_obj: RustNon,
@@ -80,7 +80,7 @@ impl Non {
     }
 }
 ////////////////// Float //////////////////
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 struct RustFloat {}
 impl RustFloat {
     fn new() -> RustFloat {
@@ -95,7 +95,7 @@ impl IntoPy<PyObject> for RustFloat {
         py.None()
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 #[pyclass]
 struct Float {
     rust_obj: RustFloat,
@@ -112,7 +112,7 @@ impl Float {
 }
 
 ////////////////// Int //////////////////
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 struct RustInt {}
 impl RustInt {
     fn new() -> RustInt {
@@ -127,7 +127,7 @@ impl IntoPy<PyObject> for RustInt {
         py.None()
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 #[pyclass]
 struct Int {
     rust_obj: RustInt,
@@ -145,7 +145,7 @@ impl Int {
     }
 }
 ////////////////// Num //////////////////
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 enum RustNum {
     Int(RustInt),
     Float(RustFloat)
@@ -159,7 +159,7 @@ impl RustNum {
     }
 }
 ////////////////// String //////////////////
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 struct RustStr {}
 impl RustStr {
     fn new() -> RustStr {
@@ -174,7 +174,7 @@ impl IntoPy<PyObject> for RustStr {
         py.None()
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 #[pyclass]
 struct Str {
     rust_obj: RustStr,
@@ -190,7 +190,7 @@ impl Str {
     }
 }
 ////////////////// Atomic //////////////////
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 enum RustAtomic {
     Num(RustNum),
     Str(RustStr),
@@ -216,7 +216,7 @@ impl IntoPy<PyObject> for RustAtomic {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 #[pyclass]
 struct Atomic {
     rust_obj: RustAtomic,
@@ -294,6 +294,69 @@ impl RustJsonSchema {
             RustJsonSchema::Atomic(atom_val) => atom_val.repr(),
             RustJsonSchema::Union(union_val) => union_val.repr(),
             RustJsonSchema::Array(array_val) => array_val.repr(),
+        }
+    }
+    fn merge(self, other:RustJsonSchema) -> RustJsonSchema {
+        match self {
+            RustJsonSchema::Atomic(ref l) => {
+                match other {
+                    RustJsonSchema::Atomic(_r) => {
+                        if l.repr() == _r.repr() {
+                            RustJsonSchema::Atomic(l.clone())
+                        } else {
+                            let mut content = HashSet::new();
+                            content.insert(self.clone());
+                            content.insert(other.clone());
+                            RustJsonSchema::Union(RustUnion {content: content})
+                        }
+                    },
+                    RustJsonSchema::Array(_) => {                        
+                        let mut content = HashSet::new();
+                        content.insert(self.clone());
+                        content.insert(other.clone());
+                        RustJsonSchema::Union(RustUnion {content: content})                        
+                    },
+                    RustJsonSchema::Union(_r) => {
+                        let mut content = HashSet::new();
+                        content.extend(_r.content);
+                        content.insert(self.clone());
+                        RustJsonSchema::Union(RustUnion {content: content})                        
+                    },
+                }
+            },
+            RustJsonSchema::Array(ref l) => {
+                match other {
+                    RustJsonSchema::Atomic(_) => {
+                        other.merge(self)
+                    },
+                    RustJsonSchema::Array(_r) => {
+                        RustJsonSchema::Array( Box::new(RustArray { content: l.content.clone().merge(_r.clone().content)} ))
+                    },
+                    RustJsonSchema::Union(_r) => {
+                        // FIXME: need to merge Array to the content of Union one-by-one such that Array can be merged. 
+                        let mut content = HashSet::new();
+                        content.extend(_r.content.clone());
+                        content.insert(self.clone());
+                        RustJsonSchema::Union(RustUnion {content: content})                   
+                    },
+                }
+            },
+            RustJsonSchema::Union(ref l) => {
+                match other {
+                    RustJsonSchema::Atomic(_) => {
+                        other.merge(self)
+                    },
+                    RustJsonSchema::Array(_) => {
+                        other.merge(self)
+                    },
+                    RustJsonSchema::Union(_r) => {
+                        let mut content = HashSet::new();
+                        content.extend(l.content.clone());
+                        content.extend(_r.content.clone());
+                        RustJsonSchema::Union(RustUnion {content: content})                        
+                    },
+                }
+            }
         }
     }
 }
@@ -494,5 +557,35 @@ mod tests {
         assert_eq!(a.repr(), "Array(Atomic(Non()))");
         let b = RustArray { content: RustJsonSchema::Array(Box::new(a.clone()))};
         assert_eq!(b.repr(), "Array(Array(Atomic(Non())))");
+    }
+    #[test]
+    fn test_merge() {
+        // Atomic | Atomic (1)
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        assert_eq!(non_atom.merge(str_atom).repr(), "Optional(Atomic(Str()))");
+        // Atomic | Atomic (2)
+        let str_atom1 = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let str_atom2 = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        assert_eq!(str_atom1.merge(str_atom2).repr(), "Atomic(Str())");
+        // Atomic | Array
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let array_atom = RustJsonSchema::Array(Box::new(RustArray{ content: RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}))}));
+        assert_eq!(str_atom.merge(array_atom).repr(), "Union({Array(Atomic(Str())), Atomic(Str())})");
+        // Atomic | Union (1)
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let array_atom = RustJsonSchema::Array(Box::new(RustArray{ content: RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}))}));
+        assert_eq!(str_atom.merge(array_atom.merge(non_atom)).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
+        // Atomic | Union (2)
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let str2_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let array_atom = RustJsonSchema::Array(Box::new(RustArray{ content: RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}))}));
+        assert_eq!(str2_atom.merge(str_atom.merge(array_atom.merge(non_atom))).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
+        // Array | Atomic 
+        // Array | Array 
+        // Array | Union
+        
     }
 }
