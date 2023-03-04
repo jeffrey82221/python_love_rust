@@ -326,12 +326,11 @@ impl Hash for FieldSet {
 //////////////////// Record ///////////////////////////
 #[derive(Clone, Eq, PartialEq)]
 struct RustRecord {
-    // A field schema recorder:
     field_schema: HashMap<String, RustJsonSchema>,
-    // A field combination counter: 
     field_comb_counter: HashMap<FieldSet, u32>,
-    // A field counter:
+    // TODO: change u32 to bool
     field_counter: HashMap<String, u32>
+    // TODO: change u32 to bool
 }
 impl RustRecord {
     fn new(field_schema: HashMap<String, RustJsonSchema>) -> RustRecord {
@@ -349,6 +348,10 @@ impl RustRecord {
         }
     }
     fn repr(&self) -> String {
+        // TODO: 
+        // Add representation rule: 
+        // 1. If no repeating fields between the FieldSet(s)), show repr_co_occurrence.
+        // 2. If united schema is not Union({xxx}), show repr_uniform_record. 
         self.repr_normal()
     }
     fn repr_normal(&self) -> String {
