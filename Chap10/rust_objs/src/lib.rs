@@ -4,8 +4,6 @@
 // - A `reduce` method operate on the Rust domain (input: json str list, output: Object str)
 // - The Object str can be transformed to Python object in Python domain. 
 // - When doing `|` operation in Python domain, `or` in Rust domain should be called.  
-// REFACTOR TODO:
-// - [ ] Seperate RustObjs and PythonObjs
 // FEAT TODO:
 // 1. [ ] Build pure rust objects 
 //    - [X] Float
@@ -56,8 +54,10 @@
 //    - [X] Union + Array -> Union
 //    - [X] Union + Record -> Union
 // 4. [ ] Refactor into multiple files
-// 5. [ ] Implement methods on Rust objects and call them from the Python Object. 
-// 6. [ ] UnitTest identical to the jsonschema python package.
+//    - [ ] Seperate RustObjs and PythonObjs
+// 5. [ ] Mapping of Json String to RustJsonSchema using JsonSerdson...
+// 6. [ ] Implement methods on Rust objects and call them from the Python Object. 
+// 7. [ ] UnitTest identical to the jsonschema python package.
 use pyo3::prelude::*;
 use pyo3::exceptions;
 use std::collections::HashSet;
@@ -787,7 +787,6 @@ fn reduce(batch: Vec<RustJsonSchema>) -> RustJsonSchema {
     let result = batch.iter().fold(batch[0].clone(), |x, y| x.merge(y.clone()));
     result
 }
-
 
 #[pymodule]
 fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
