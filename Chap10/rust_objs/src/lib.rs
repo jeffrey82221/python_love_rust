@@ -347,8 +347,15 @@ impl RustRecord {
         }
     }
     fn repr(&self) -> String {
-        let mut strings: Vec<String> = self.field_schema.iter()
-            .map(|(key, value)| format!("\"{}\": {}", key, value.repr()))
+        self.repr_normal()
+    }
+    fn repr_normal(&self) -> String {
+        let keys_set: HashSet<String> = self.field_schema.keys().cloned().collect();
+        self.compose_record_str(keys_set)
+    }
+    fn compose_record_str(&self, fieldset: HashSet<String>) -> String {
+        let mut strings: Vec<String> = fieldset.into_iter()
+            .map(|key| format!("\"{}\": {}", key, self.field_schema.get(&key).unwrap().repr()))
             .collect();
         strings.sort();
         format!("Record({{{}}})", strings.join(", "))
