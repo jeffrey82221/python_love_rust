@@ -729,6 +729,14 @@ impl Hash for RustJsonSchema {
         self.repr().hash(state)
     }
 }
+
+//////////////////// Reduce Merge of Json Schemas ///////////////////////
+fn reduce(batch: Vec<RustJsonSchema>) -> RustJsonSchema {
+    let result = batch.iter().fold(batch[0].clone(), |x, y| x.merge(y.clone()));
+    result
+}
+
+
 #[pymodule]
 fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Int>()?;
@@ -1059,5 +1067,14 @@ mod tests {
                 panic!();
             }
         }
+    }
+    #[test]
+    fn test_reduce() {
+        let int_atom = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
+        let float_atom = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let batch = vec![int_atom, float_atom, non_atom];
+        let result = reduce(batch);
+        assert_eq!(result.repr(), "Union({Atomic(Float()), Atomic(Int()), Atomic(Non())})");
     }
 }
