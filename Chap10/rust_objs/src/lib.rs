@@ -22,7 +22,7 @@
 //    - [ ] Record
 //         - [X] Basic Representation 
 //         - [ ] UniformRecord: Uniform Representation (Merge all schemas) (UniformRecord(FieldSet({"A", "B", "C"}, UNION_SCHEMA)))
-//               - [ ] Build FieldSet python objects (+modify FieldSet to RustFieldSet) that Takes set of strings as input 
+//               - [X] Build FieldSet python objects (+modify FieldSet to RustFieldSet) that Takes set of strings as input 
 //               - [ ] Build UniformRecord Python Objects that build RustRecords from FieldSet and the Union JsonSchema. 
 //         - [X] Record(): Dynamic Representation 1 (show fields and their schemas with fields).
 //         - [X] Union({Record()}): Dynamic Representation 2 (show only the field combination and their schemas as different Records):  Union({Record(xx), Record(xx)})
@@ -310,7 +310,10 @@ impl RustFieldSet {
         strings
     }
     fn repr(&self) -> String {
-        format!("FieldSet({})", self.to_vec().join(", "))
+        let strings: Vec<String> = self.to_vec().iter()
+            .map(|s| format!("'{}'",s))
+            .collect();
+        format!("FieldSet({})", strings.join(", "))
     }
 }
 impl IntoPy<PyObject> for RustFieldSet {
@@ -323,6 +326,29 @@ impl Hash for RustFieldSet {
         self.repr().hash(state)
     }
 }
+
+#[derive(Clone)]
+#[pyclass]
+struct FieldSet {
+    rust_obj: RustFieldSet,
+}
+
+#[pymethods]
+impl FieldSet {
+    #[new]
+    fn new(obj: &PySet) -> PyResult<Self> {
+        let mut fields = HashSet::new();
+        for item in obj.iter() {
+            let field = item.to_string();
+            fields.insert(field);
+        }
+        Ok(FieldSet { rust_obj: RustFieldSet {content: fields} })
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
+
 //////////////////// Record ///////////////////////////
 #[derive(Clone, Eq, PartialEq)]
 struct RustRecord {
@@ -714,6 +740,7 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Record>()?;
     m.add_class::<Union>()?;
     m.add_class::<Optional>()?;
+    m.add_class::<FieldSet>()?;
     return Ok( () );
 }
 
