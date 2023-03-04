@@ -295,12 +295,12 @@ impl Array {
 }
 //////////////////// FieldSet of RustRecord //////////////
 #[derive(Clone, Eq, PartialEq)]
-struct FieldSet {
+struct RustFieldSet {
     content: HashSet<String>
 }
-impl FieldSet {
-    fn new(content: HashSet<String>) -> FieldSet {
-        FieldSet {
+impl RustFieldSet {
+    fn new(content: HashSet<String>) -> RustFieldSet {
+        RustFieldSet {
             content: content
         }
     }
@@ -313,12 +313,12 @@ impl FieldSet {
         format!("FieldSet({})", self.to_vec().join(", "))
     }
 }
-impl IntoPy<PyObject> for FieldSet {
+impl IntoPy<PyObject> for RustFieldSet {
     fn into_py(self, py: Python) -> PyObject {
         py.None()
     }
 }
-impl Hash for FieldSet {
+impl Hash for RustFieldSet {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.repr().hash(state)
     }
@@ -327,7 +327,7 @@ impl Hash for FieldSet {
 #[derive(Clone, Eq, PartialEq)]
 struct RustRecord {
     field_schema: HashMap<String, RustJsonSchema>,
-    field_comb_counter: HashMap<FieldSet, u32>,
+    field_comb_counter: HashMap<RustFieldSet, u32>,
     // TODO: change u32 to bool
     field_counter: HashMap<String, u32>
     // TODO: change u32 to bool
@@ -336,7 +336,7 @@ impl RustRecord {
     fn new(field_schema: HashMap<String, RustJsonSchema>) -> RustRecord {
         let mut field_comb_counter = HashMap::new();
         let keys: HashSet<String> = field_schema.keys().cloned().collect();
-        field_comb_counter.insert(FieldSet {content: keys}, 1);
+        field_comb_counter.insert(RustFieldSet {content: keys}, 1);
         let mut field_counter = HashMap::new();
         for key in field_schema.keys() {
             field_counter.insert(key.clone(), 1);
@@ -918,7 +918,7 @@ mod tests {
                     }
                 }
                 assert_eq!(record.field_comb_counter.len(), 2);
-                match record.field_comb_counter.get(&FieldSet {content: apple_banana} ) {
+                match record.field_comb_counter.get(&RustFieldSet {content: apple_banana} ) {
                     Some(cnt) => {
                         assert_eq!(cnt.to_owned(), 1);
                     },
