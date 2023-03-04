@@ -19,14 +19,14 @@
 //         but Union with Array, Atomic, or Record does make sense. 
 //    - [X] Optional
 //    - [X] Array 
-//    - [ ] Record
+//    - [X] Record
 //         - [X] Basic Representation 
-//         - [ ] UniformRecord: Uniform Representation (Merge all schemas) (UniformRecord(FieldSet({"A", "B", "C"}, UNION_SCHEMA)))
+//         - [X] UniformRecord: Uniform Representation (Merge all schemas) (UniformRecord(FieldSet({"A", "B", "C"}, UNION_SCHEMA)))
 //               - [X] Build FieldSet python objects (+modify FieldSet to RustFieldSet) that Takes set of strings as input 
-//               - [ ] Build UniformRecord Python Objects that build RustRecords from FieldSet and the Union JsonSchema. 
+//               - [X] Build UniformRecord Python Objects that build RustRecords from FieldSet and the Union JsonSchema. 
 //         - [X] Record(): Dynamic Representation 1 (show fields and their schemas with fields).
 //         - [X] Union({Record()}): Dynamic Representation 2 (show only the field combination and their schemas as different Records):  Union({Record(xx), Record(xx)})
-//         - [-] Auto decide representation by length. 
+//         - [X] Auto decide representation by constraint. 
 // 2. [X] Let PyClass takes RustObjects as variable. 
 //    - [X] Float
 //    - [X] Int
@@ -313,7 +313,7 @@ impl RustFieldSet {
         let strings: Vec<String> = self.to_vec().iter()
             .map(|s| format!("'{}'",s))
             .collect();
-        format!("FieldSet({})", strings.join(", "))
+        format!("FieldSet({{{}}})", strings.join(", "))
     }
 }
 impl IntoPy<PyObject> for RustFieldSet {
@@ -349,7 +349,7 @@ impl FieldSet {
     }
 }
 
-//////////////////// Record ///////////////////////////
+//////////////////// Record + UniformRecord ///////////////////////////
 #[derive(Clone, Eq, PartialEq)]
 struct RustRecord {
     field_schema: HashMap<String, RustJsonSchema>,
@@ -376,9 +376,33 @@ impl RustRecord {
     fn repr(&self) -> String {
         // TODO: 
         // Add representation rule: 
-        // 1. If no repeating fields between the FieldSet(s)), show repr_co_occurrence.
-        // 2. If united schema is not Union({xxx}), show repr_uniform_record. 
-        self.repr_normal()
+        // 1. If united schema is not Union({xxx}), show repr_uniform_record. 
+        // 2. [X] If repr_co_occurrence and repr_normal is very close, use repr_co_occurrence.
+        let reduced_schemas = reduce(self.field_schema.values().cloned().collect());
+        match reduced_schemas {
+            RustJsonSchema::Union(u) => {
+                let repr_n = self.repr_normal();
+                if self.field_comb_counter.len() == 1 {
+                    repr_n
+                } else {
+                    let repr_c = self.repr_co_occurence();
+                    if repr_c.len() - repr_n.len() < 30 {
+                        repr_c
+                    } else {
+                        repr_n
+                    }
+                }
+            },
+            _ => {
+                self.repr_uniform(reduced_schemas)
+            }
+        }
+        
+    }
+    fn repr_uniform(&self, json_schema: RustJsonSchema) -> String {
+        let keys: HashSet<String> = self.field_schema.keys().cloned().collect();
+        let field_set = RustFieldSet {content: keys};
+        format!("UniformRecord({}, {})", field_set.repr(), json_schema.repr())
     }
     fn repr_normal(&self) -> String {
         // This is the representation with medium amount of information
@@ -429,6 +453,34 @@ impl Record {
             content.insert(key_str, rust_schema);
         }
         Ok(Record { rust_obj: RustRecord::new(content)})
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
+
+#[derive(Clone)]
+#[pyclass]
+struct UniformRecord {
+    rust_obj: RustRecord,
+}
+
+#[pymethods]
+impl UniformRecord {
+    #[new]
+    fn new(field_set: FieldSet, value: &PyAny) -> PyResult<UniformRecord> {
+        let mut content = HashMap::new();
+        let rust_schema = match (value.extract::<Atomic>(), value.extract::<Array>(), value.extract::<Record>(), value.extract::<Union>()) {
+            (Ok(atom), _, _, _) => RustJsonSchema::Atomic(atom.rust_obj),
+            (_, Ok(arr), _, _) => RustJsonSchema::Array(arr.rust_obj),
+            (_, _, Ok(rec), _) => RustJsonSchema::Record(rec.rust_obj),
+            (_, _, _, Ok(uni)) => RustJsonSchema::Union(uni.rust_obj),
+            _ => return Err(exceptions::PyTypeError::new_err("Expect Atomic, Array, Record, or Union"))
+        };
+        for key_str in field_set.rust_obj.content.iter() {
+            content.insert(key_str.clone(), rust_schema.clone());
+        }
+        Ok(UniformRecord { rust_obj: RustRecord::new(content)})
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
@@ -746,9 +798,10 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Atomic>()?;
     m.add_class::<Array>()?;
     m.add_class::<Record>()?;
+    m.add_class::<FieldSet>()?;
+    m.add_class::<UniformRecord>()?;
     m.add_class::<Union>()?;
     m.add_class::<Optional>()?;
-    m.add_class::<FieldSet>()?;
     return Ok( () );
 }
 
@@ -1051,6 +1104,17 @@ mod tests {
         }
     }
     #[test]
+    fn test_record_repr_uniform() {
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let mut map = HashMap::new();
+        map.insert("banana".to_owned(), str_atom.clone());
+        map.insert("apple".to_owned(), str_atom.clone());
+        map.insert("can".to_owned(), str_atom.clone());
+        let rr = RustRecord::new(map.clone());
+        let values_vec: Vec<RustJsonSchema> = rr.field_schema.values().cloned().collect();
+        assert_eq!(rr.repr_uniform(reduce(values_vec)), "UniformRecord(FieldSet({'apple', 'banana', 'can'}), Atomic(Str()))");
+    }
+    #[test]
     fn test_record_repr() {
         let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
         let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
@@ -1062,6 +1126,47 @@ mod tests {
         match r_schema.clone() {
             RustJsonSchema::Record(r) => {
                 assert_eq!(r.repr(), "Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non())})");
+            },
+            _ => {
+                panic!();
+            }
+        }
+        // Test union case: 
+        let mut map = HashMap::new();
+        map.insert("can".to_owned(), non_atom.clone());
+        let p_schema = RustJsonSchema::Record(RustRecord::new(map.clone()));
+        match r_schema.clone().merge(p_schema).clone() {
+            RustJsonSchema::Record(r) => {
+                assert_eq!(r.repr(), "Union({Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non())}), Record({\"can\": Atomic(Non())})})");
+            },
+            _ => {
+                panic!();
+            }
+        }
+        // Test normal case: 
+        let mut map = HashMap::new();
+        map.insert("banana".to_owned(), non_atom.clone());
+        map.insert("apple".to_owned(), str_atom.clone());
+        map.insert("can".to_owned(), non_atom.clone());
+        let p_schema = RustJsonSchema::Record(RustRecord::new(map.clone()));
+        match r_schema.merge(p_schema).clone() {
+            RustJsonSchema::Record(r) => {
+                assert_eq!(r.repr(), "Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non()), \"can\": Atomic(Non())})");
+            },
+            _ => {
+                panic!();
+            }
+        }
+        // Test uniform case:
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let mut map = HashMap::new();
+        map.insert("banana".to_owned(), str_atom.clone());
+        map.insert("apple".to_owned(), str_atom.clone());
+        map.insert("can".to_owned(), str_atom.clone());
+        let s_schema = RustJsonSchema::Record(RustRecord::new(map.clone()));
+        match s_schema {
+            RustJsonSchema::Record(r) => {
+                assert_eq!(r.repr(), "UniformRecord(FieldSet({'apple', 'banana', 'can'}), Atomic(Str()))");
             },
             _ => {
                 panic!();
