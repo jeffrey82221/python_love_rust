@@ -350,6 +350,7 @@ impl FieldSet {
 }
 
 //////////////////// Record + UniformRecord ///////////////////////////
+const TOL_BY_NUM_CHAR_IN_LINE: usize = 30;
 #[derive(Clone, Eq, PartialEq)]
 struct RustRecord {
     field_schema: HashMap<String, RustJsonSchema>,
@@ -374,10 +375,8 @@ impl RustRecord {
         }
     }
     fn repr(&self) -> String {
-        // TODO: 
-        // Add representation rule: 
-        // 1. If united schema is not Union({xxx}), show repr_uniform_record. 
-        // 2. [X] If repr_co_occurrence and repr_normal is very close, use repr_co_occurrence.
+        // 1. [X] If united schema is not Union({xxx}), show repr_uniform_record. 
+        // 2. [X] If repr_co_occurrence and repr_normal is very close, use repr_co_occurrence. 
         let reduced_schemas = reduce(self.field_schema.values().cloned().collect());
         match reduced_schemas {
             RustJsonSchema::Union(u) => {
@@ -386,7 +385,7 @@ impl RustRecord {
                     repr_n
                 } else {
                     let repr_c = self.repr_co_occurence();
-                    if repr_c.len() - repr_n.len() < 30 {
+                    if repr_c.len() - repr_n.len() < TOL_BY_NUM_CHAR_IN_LINE {
                         repr_c
                     } else {
                         repr_n
