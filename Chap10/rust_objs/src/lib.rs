@@ -291,13 +291,43 @@ impl Array {
         self.rust_obj.repr()
     }
 }
+//////////////////// FieldSet of RustRecord //////////////
+#[derive(Clone, Eq, PartialEq)]
+struct FieldSet {
+    content: HashSet<String>
+}
+impl FieldSet {
+    fn new(content: HashSet<String>) -> FieldSet {
+        FieldSet {
+            content: content
+        }
+    }
+    fn to_vec(&self) -> Vec<String> {
+        let mut strings: Vec<String> = self.content.clone().into_iter().collect();
+        strings.sort();
+        strings
+    }
+    fn repr(&self) -> String {
+        format!("FieldSet({})", self.to_vec().join(", "))
+    }
+}
+impl IntoPy<PyObject> for FieldSet {
+    fn into_py(self, py: Python) -> PyObject {
+        py.None()
+    }
+}
+impl Hash for FieldSet {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.repr().hash(state)
+    }
+}
 //////////////////// Record ///////////////////////////
 #[derive(Clone, Eq, PartialEq)]
 struct RustRecord {
     // A field schema recorder:
     field_schema: HashMap<String, RustJsonSchema>,
     // A field combination counter: 
-    field_comb_counter: HashMap<String, u32>,
+    field_comb_counter: HashMap<FieldSet, u32>,
     // A field counter:
     field_counter: HashMap<String, u32>
 }
@@ -305,9 +335,7 @@ impl RustRecord {
     fn new(field_schema: HashMap<String, RustJsonSchema>) -> RustRecord {
         let mut field_comb_counter = HashMap::new();
         let keys: HashSet<String> = field_schema.keys().cloned().collect();
-        let mut key_vec: Vec<String> = keys.into_iter().collect();
-        key_vec.sort();
-        field_comb_counter.insert(key_vec.join(", "), 1);
+        field_comb_counter.insert(FieldSet {content: keys}, 1);
         let mut field_counter = HashMap::new();
         for key in field_schema.keys() {
             field_counter.insert(key.clone(), 1);
@@ -587,10 +615,10 @@ impl RustJsonSchema {
                         for (key, r_cnt) in _r.field_comb_counter.iter() {
                             match l.field_comb_counter.get(key) {
                                 Some(l_cnt) => {
-                                    field_comb_counter.insert(key.to_string(), r_cnt.clone() + l_cnt.clone());
+                                    field_comb_counter.insert(key.clone(), r_cnt.clone() + l_cnt.clone());
                                 },
                                 None => {
-                                    field_comb_counter.insert(key.to_string(), r_cnt.clone());
+                                    field_comb_counter.insert(key.clone(), r_cnt.clone());
                                 }
                             }
                         }
@@ -838,6 +866,9 @@ mod tests {
         let rr2 = RustJsonSchema::Record(RustRecord::new(map));
         assert_eq!(rr1.clone().merge(rr2.clone()).repr(), "Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non()), \"can\": Atomic(Str())})");
         let r = rr1.clone().merge(rr2.clone());
+        let mut apple_banana = HashSet::new();
+        apple_banana.insert("apple".to_string());
+        apple_banana.insert("banana".to_string());
         match r {
             RustJsonSchema::Record(record) => {
                 assert_eq!(record.field_counter.len(), 3);
@@ -866,15 +897,7 @@ mod tests {
                     }
                 }
                 assert_eq!(record.field_comb_counter.len(), 2);
-                match record.field_comb_counter.get("apple, banana") {
-                    Some(cnt) => {
-                        assert_eq!(cnt.to_owned(), 1);
-                    },
-                    None => {
-                        panic!();
-                    }
-                }
-                match record.field_comb_counter.get("banana, can") {
+                match record.field_comb_counter.get(&FieldSet {content: apple_banana} ) {
                     Some(cnt) => {
                         assert_eq!(cnt.to_owned(), 1);
                     },
