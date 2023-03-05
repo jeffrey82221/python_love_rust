@@ -1,3 +1,10 @@
+/*
+TODO:
+let record fields ordered by occurrence 
+- [ ] repr_co_occurence
+- [ ] repr_normal
+- [ ] repr_uniform
+*/
 use pyo3::prelude::*;
 use pyo3::exceptions;
 use pyo3::types::{PySet, PyDict};
