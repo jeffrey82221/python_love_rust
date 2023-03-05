@@ -10,10 +10,13 @@ use pyo3::exceptions;
 use pyo3::types::{PySet, PyDict};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
+
 use super::top::RustJsonSchema;
 use super::atomic::Atomic;
 use super::array::Array;
 use super::unions::Union;
+use crate::op::reduce::reduce;
+
 ////////////// PyObjs ///////////////////
 #[derive(Clone)]
 #[pyclass]
@@ -199,7 +202,6 @@ impl Hash for RustFieldSet {
 }
 
 use super::atomic::*;
-use super::unions::reduce;
 #[cfg(test)]
 mod tests {
     use super::*;

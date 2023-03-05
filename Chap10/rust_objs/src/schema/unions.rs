@@ -7,11 +7,6 @@ use super::array::Array;
 use super::record::Record;
 use super::top::RustJsonSchema;
 use super::atomic::{RustNon, RustAtomic};
-////////////// Main Function ///////////////////////
-pub fn reduce(batch: Vec<RustJsonSchema>) -> RustJsonSchema {
-    let result = batch.iter().fold(batch[0].clone(), |x, y| x.merge(y.clone()));
-    result
-}
 //////////////// Python Objs ////////////////////////
 #[derive(Clone)]
 #[pyclass]
@@ -112,15 +107,6 @@ use super::atomic::*;
 mod tests {
     use super::*;
     use std::collections::HashSet;
-    #[test]
-    fn test_reduce() {
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let bool_atom = RustJsonSchema::Atomic(RustAtomic::Bool(RustBool{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let batch = vec![str_atom, bool_atom, non_atom];
-        let result = reduce(batch);
-        assert_eq!(result.repr(), "Union({Atomic(Bool()), Atomic(Non()), Atomic(Str())})");
-    }
     #[test]
     fn test_union() {
         let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));

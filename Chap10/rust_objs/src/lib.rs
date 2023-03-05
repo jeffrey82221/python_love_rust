@@ -60,6 +60,7 @@
 // 7. [ ] UnitTest identical to the jsonschema python package.
 use pyo3::prelude::*;
 mod schema;
+mod op;
 use schema::atomic::{Non, Str, Bool, Atomic};
 use schema::num::{Float, Int};
 use schema::record::{Record, FieldSet, UniformRecord};
