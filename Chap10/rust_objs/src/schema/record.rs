@@ -140,7 +140,11 @@ impl RustRecord {
                 }
             },
             _ => {
-                self.repr_uniform(reduced_schemas)
+                if self.field_counter.len() == 1 {
+                    self.repr_normal()
+                } else {
+                    self.repr_uniform(reduced_schemas)
+                }
             }
         }
         
