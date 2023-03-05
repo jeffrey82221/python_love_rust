@@ -207,19 +207,54 @@ impl Str {
         self.rust_obj.repr()
     }
 }
+
+
+////////////////// Bool //////////////////
+#[derive(Clone, Copy, Eq, PartialEq)]
+struct RustBool {}
+impl RustBool {
+    fn new() -> RustBool {
+        RustBool {}
+    }
+    fn repr(&self) -> String {
+        format!("Bool()")
+    }
+}
+impl IntoPy<PyObject> for RustBool {
+    fn into_py(self, py: Python) -> PyObject {
+        py.None()
+    }
+}
+#[derive(Clone, Copy)]
+#[pyclass]
+struct Bool {
+    rust_obj: RustBool,
+}
+#[pymethods]
+impl Bool {
+    #[new]
+    fn new() -> Self {
+        Bool { rust_obj: RustBool {} }
+    }
+    fn __repr__(&self) -> String {
+        self.rust_obj.repr()
+    }
+}
 ////////////////// Atomic //////////////////
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum RustAtomic {
     Num(RustNum),
     Str(RustStr),
-    Non(RustNon)
+    Non(RustNon),
+    Bool(RustBool)
 }
 impl RustAtomic {
     fn repr(&self) -> String {
         match self {
-            RustAtomic::Str(str_val) => format!("Atomic({})", str_val.repr()),
-            RustAtomic::Num(num_val) => format!("Atomic({})", num_val.repr()),
-            RustAtomic::Non(non_val) => format!("Atomic({})", non_val.repr()),
+            RustAtomic::Str(val) => format!("Atomic({})", val.repr()),
+            RustAtomic::Num(val) => format!("Atomic({})", val.repr()),
+            RustAtomic::Non(val) => format!("Atomic({})", val.repr()),
+            RustAtomic::Bool(val) => format!("Atomic({})", val.repr()),
         }
     }
 }
@@ -240,12 +275,13 @@ struct Atomic {
 impl Atomic {
     #[new]
     fn new(obj: &PyAny) -> PyResult<Self> {
-        let rust_atomic = match (obj.extract::<Int>(), obj.extract::<Float>(), obj.extract::<Str>(), obj.extract::<Non>()) {
-            (Ok(int), _, _, _) => RustAtomic::Num(RustNum::Int(int.rust_obj)),
-            (_, Ok(float), _, _) => RustAtomic::Num(RustNum::Float(float.rust_obj)),
-            (_, _, Ok(string), _) => RustAtomic::Str(string.rust_obj),
-            (_, _, _, Ok(non)) => RustAtomic::Non(non.rust_obj),
-            _ => return Err(exceptions::PyTypeError::new_err("Expect an Int, Float, Str or Non"))
+        let rust_atomic = match (obj.extract::<Int>(), obj.extract::<Float>(), obj.extract::<Str>(), obj.extract::<Non>(), obj.extract::<Bool>()) {
+            (Ok(x), _, _, _, _) => RustAtomic::Num(RustNum::Int(x.rust_obj)),
+            (_, Ok(x), _, _, _) => RustAtomic::Num(RustNum::Float(x.rust_obj)),
+            (_, _, Ok(x), _, _) => RustAtomic::Str(x.rust_obj),
+            (_, _, _, Ok(x), _) => RustAtomic::Non(x.rust_obj),
+            (_, _, _, _, Ok(x)) => RustAtomic::Bool(x.rust_obj),
+            _ => return Err(exceptions::PyTypeError::new_err("Expect an Int, Float, Str, Bool, or Non"))
         };
         Ok(Atomic { rust_obj: rust_atomic })
     }
@@ -793,6 +829,7 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Float>()?;
     m.add_class::<Str>()?;
     m.add_class::<Non>()?;
+    m.add_class::<Bool>()?;
     m.add_class::<Atomic>()?;
     m.add_class::<Array>()?;
     m.add_class::<Record>()?;
@@ -807,6 +844,19 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+    #[test]
+    fn test_atomic() {
+        let int_atom = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
+        assert_eq!(int_atom.repr(), "Atomic(Int())");
+        let float_atom = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Float(RustFloat{})));
+        assert_eq!(float_atom.repr(), "Atomic(Float())");
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        assert_eq!(str_atom.repr(), "Atomic(Str())");
+        let boo_atom = RustJsonSchema::Atomic(RustAtomic::Bool(RustBool{}));
+        assert_eq!(boo_atom.repr(), "Atomic(Bool())");
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        assert_eq!(non_atom.repr(), "Atomic(Non())");
+    }
     #[test]
     fn test_union() {
         let int_atom = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
