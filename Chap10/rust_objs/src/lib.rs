@@ -53,14 +53,16 @@
 //    - [X] Union + Union -> Union 
 //    - [X] Union + Array -> Union
 //    - [X] Union + Record -> Union
-// 4. [ ] Refactor into multiple files
-//    - [ ] Seperate RustObjs and PythonObjs
-// 5. [ ] Mapping of Json String to RustJsonSchema using JsonSerdson...
-// 6. [ ] Implement methods on Rust objects and call them from the Python Object. 
+// 4. [X] Refactor into multiple files
+//    - [X] Seperate RustObjs and PythonObjs
+// 5. [X] Mapping of Json String to RustJsonSchema using JsonSerdson...
+// 6. [X] Implement methods on Rust objects and call them from the Python Object. 
 // 7. [ ] UnitTest identical to the jsonschema python package.
 use pyo3::prelude::*;
-mod schema;
+use pyo3::types::PyList;
 mod op;
+use op::infer::RustInferenceEngine;
+mod schema;
 use schema::atomic::{Non, Str, Bool, Atomic};
 use schema::num::{Float, Int};
 use schema::record::{Record, FieldSet, UniformRecord};
@@ -68,7 +70,23 @@ use schema::array::{Array};
 use schema::unions::{Union, Optional};
 use schema::unknown::Unknown;
 //////////////////// Reduce Merge of Json Schemas ///////////////////////
-
+#[pyclass]
+struct InferenceEngine {
+    rust_obj: RustInferenceEngine
+}
+#[pymethods]
+impl InferenceEngine {
+    #[new]
+    fn new() -> PyResult<Self> {
+        Ok(InferenceEngine { rust_obj: RustInferenceEngine::new()})
+    }
+    fn run(&self, batch: &PyList) -> String {
+        let vec: Vec<&str> = (0..batch.len())
+            .map(|i| batch.get_item(i).unwrap().extract::<&str>().unwrap())
+            .collect();
+        self.rust_obj.infer(vec)
+    }
+}
 #[pymodule]
 fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<Int>()?;

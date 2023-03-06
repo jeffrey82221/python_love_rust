@@ -12,16 +12,16 @@ use crate::schema::array::RustArray;
 use crate::schema::record::RustRecord;
 use crate::schema::unknown::RustUnknown;
 use super::reduce::reduce;
-pub struct InferenceEngine {
+pub struct RustInferenceEngine {
     pool: ThreadPool
 }
-impl InferenceEngine {
-    fn new() -> InferenceEngine {
+impl RustInferenceEngine {
+    pub fn new() -> RustInferenceEngine {
         let pool = ThreadPoolBuilder::new()
             .num_threads(num_cpus::get() * 2)
             .build()
             .unwrap();
-        InferenceEngine {pool: pool}
+        RustInferenceEngine {pool: pool}
     }
     pub fn infer(&self, batch: Vec<&str>) -> String {
         let first_schema = RustJsonSchema::Unknown(RustUnknown::new());
@@ -73,12 +73,12 @@ fn to_schema(json_value: Value) -> RustJsonSchema {
 #[cfg(test)]
 mod tests {
     use crate::op::infer::to_schema;
-    use crate::op::infer::InferenceEngine;
+    use crate::op::infer::RustInferenceEngine;
     use serde_json::Value;
     use serde_json;
     #[test]
     fn test_infer() {
-        let inferer = InferenceEngine::new();
+        let inferer = RustInferenceEngine::new();
         let jsons = vec!["1", "1.0"];
         let result = inferer.infer(jsons);
         assert_eq!(result, "Union({Atomic(Float()), Atomic(Int())})");
