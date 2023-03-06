@@ -40,7 +40,7 @@ impl Union {
         if cnt < 2 {
             panic!("# of content of Union should >= 2")
         }
-        Ok(Union { rust_obj: RustUnion {content: content} })
+        Ok(Union { rust_obj: RustUnion::new(content)})
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
@@ -65,7 +65,7 @@ impl Optional {
         };
         content.insert(rust_schema);
         content.insert(RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})));
-        Ok(Optional { rust_obj: RustUnion {content: content} })
+        Ok(Optional { rust_obj: RustUnion::new(content)})
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()

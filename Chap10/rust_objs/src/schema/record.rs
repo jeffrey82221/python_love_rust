@@ -90,7 +90,7 @@ impl FieldSet {
             let field = item.to_string();
             fields.insert(field);
         }
-        Ok(FieldSet { rust_obj: RustFieldSet {content: fields} })
+        Ok(FieldSet { rust_obj: RustFieldSet::new(fields) })
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
@@ -110,7 +110,7 @@ impl RustRecord {
     pub fn new(field_schema: HashMap<String, RustJsonSchema>) -> RustRecord {
         let mut field_comb_counter = HashMap::new();
         let keys: HashSet<String> = field_schema.keys().cloned().collect();
-        field_comb_counter.insert(RustFieldSet {content: keys}, 1);
+        field_comb_counter.insert(RustFieldSet::new(keys), 1);
         let mut field_counter = HashMap::new();
         for key in field_schema.keys() {
             field_counter.insert(key.clone(), 1);
@@ -151,7 +151,7 @@ impl RustRecord {
     }
     fn repr_uniform(&self, json_schema: RustJsonSchema) -> String {
         let keys: HashSet<String> = self.field_schema.keys().cloned().collect();
-        let field_set = RustFieldSet {content: keys};
+        let field_set = RustFieldSet::new(keys);
         format!("UniformRecord({}, {})", field_set.repr(), json_schema.repr())
     }
     fn repr_normal(&self) -> String {

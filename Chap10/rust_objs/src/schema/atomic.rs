@@ -34,7 +34,7 @@ pub struct Non {
 impl Non {
     #[new]
     fn new() -> Self {
-        Non { rust_obj: RustNon {} }
+        Non { rust_obj: RustNon::new() }
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
@@ -49,7 +49,7 @@ pub struct Str {
 impl Str {
     #[new]
     fn new() -> Self {
-        Str { rust_obj: RustStr {} }
+        Str { rust_obj: RustStr::new() }
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
@@ -64,7 +64,7 @@ pub struct Bool {
 impl Bool {
     #[new]
     fn new() -> Self {
-        Bool { rust_obj: RustBool {} }
+        Bool { rust_obj: RustBool::new() }
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
@@ -124,11 +124,11 @@ mod atomic_tests {
     use super::*;
     #[test]
     fn test_atomic() {
-        let str_atom = RustAtomic::Str(RustStr{});
+        let str_atom = RustAtomic::Str(RustStr::new());
         assert_eq!(str_atom.repr(), "Atomic(Str())");
-        let boo_atom = RustAtomic::Bool(RustBool{});
+        let boo_atom = RustAtomic::Bool(RustBool::new());
         assert_eq!(boo_atom.repr(), "Atomic(Bool())");
-        let non_atom = RustAtomic::Non(RustNon{});
+        let non_atom = RustAtomic::Non(RustNon::new());
         assert_eq!(non_atom.repr(), "Atomic(Non())");
         let int_atom = RustAtomic::Num(RustNum::Int(RustInt{}));
         assert_eq!(int_atom.repr(), "Atomic(Int())");

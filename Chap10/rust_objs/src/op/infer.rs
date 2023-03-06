@@ -79,7 +79,6 @@ fn to_schema(json_value: Value) -> RustJsonSchema {
 mod tests {
     use crate::op::infer::to_schema;
     use crate::op::infer::RustInferenceEngine;
-    use serde_json::Value;
     use serde_json;
     #[test]
     fn test_infer() {

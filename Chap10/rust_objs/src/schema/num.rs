@@ -75,9 +75,9 @@ mod num_tests {
     use super::*;
     #[test]
     fn test_repr() {
-        let int_num = RustNum::Int(RustInt{});
+        let int_num = RustNum::Int(RustInt::new());
         assert_eq!(int_num.repr(), "Int()");
-        let float_num = RustNum::Float(RustFloat{});
+        let float_num = RustNum::Float(RustFloat::new());
         assert_eq!(float_num.repr(), "Float()");
     }
 }
