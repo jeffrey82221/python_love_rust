@@ -31,7 +31,7 @@ pub struct RustArray {
     pub content: Box<RustJsonSchema>
 }
 impl RustArray {
-    fn new(content: RustJsonSchema) -> RustArray {
+    pub fn new(content: RustJsonSchema) -> RustArray {
         RustArray {content: Box::new(content)}
     }
     pub fn repr(&self) -> String {

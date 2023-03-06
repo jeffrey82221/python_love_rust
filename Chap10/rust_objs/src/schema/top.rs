@@ -4,9 +4,11 @@ use super::atomic::RustAtomic;
 use super::array::RustArray;
 use super::record::RustRecord;
 use super::unions::RustUnion;
+use super::unknown::RustUnknown;
 //////////////////// JsonSchema ///////////////////////////
 #[derive(Clone, Eq, PartialEq)]
 pub enum RustJsonSchema {
+    Unknown(RustUnknown),
     Atomic(RustAtomic),
     Array(RustArray),
     Record(RustRecord),
@@ -15,6 +17,7 @@ pub enum RustJsonSchema {
 impl RustJsonSchema {
     pub fn repr(&self) -> String {
         match self {
+            RustJsonSchema::Unknown(un_val) => un_val.repr(),
             RustJsonSchema::Atomic(atom_val) => atom_val.repr(),
             RustJsonSchema::Array(array_val) => array_val.repr(),
             RustJsonSchema::Record(record_val) => record_val.repr(),
@@ -23,8 +26,14 @@ impl RustJsonSchema {
     }
     pub fn merge(self, other:RustJsonSchema) -> RustJsonSchema {
         match self {
+            RustJsonSchema::Unknown(_) => {
+                other
+            },
             RustJsonSchema::Atomic(ref l) => {
                 match other {
+                    RustJsonSchema::Unknown(_) => {
+                        self
+                    },
                     RustJsonSchema::Atomic(_r) => {
                         if l.repr() == _r.repr() {
                             RustJsonSchema::Atomic(l.clone())
@@ -57,6 +66,9 @@ impl RustJsonSchema {
             },
             RustJsonSchema::Array(ref l) => {
                 match other {
+                    RustJsonSchema::Unknown(_) => {
+                        self
+                    },
                     RustJsonSchema::Atomic(_) => {
                         other.merge(self)
                     },
@@ -86,7 +98,8 @@ impl RustJsonSchema {
                                 },
                                 RustJsonSchema::Union(_u) => {
                                     content.extend(_u.content.clone());
-                                }
+                                },
+                                RustJsonSchema::Unknown(_) => {}
                             }
                         }
                         if has_array == 0 {
@@ -98,6 +111,9 @@ impl RustJsonSchema {
             },
             RustJsonSchema::Record(ref l) => {
                 match other {
+                    RustJsonSchema::Unknown(_) => {
+                        self
+                    },
                     RustJsonSchema::Atomic(_) => {
                         other.merge(self)
                     },
@@ -163,7 +179,8 @@ impl RustJsonSchema {
                                 },
                                 RustJsonSchema::Union(_u) => {
                                     content.extend(_u.content.clone());
-                                }
+                                },
+                                RustJsonSchema::Unknown(_) => {}
                             }
                         }
                         if has_record == 0 {
@@ -175,6 +192,9 @@ impl RustJsonSchema {
             },
             RustJsonSchema::Union(ref l) => {
                 match other {
+                    RustJsonSchema::Unknown(_) => {
+                        self
+                    },
                     RustJsonSchema::Atomic(_) => {
                         other.merge(self)
                     },
@@ -210,110 +230,74 @@ mod tests {
     use std::collections::HashMap;
     #[test]
     fn test_merge() {
+        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let unknown_atom = RustJsonSchema::Unknown(RustUnknown{});
+        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
+        let int_atom = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
+        let array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
+        // Atomic | Unknown
+        assert_eq!(non_atom.clone().merge(unknown_atom.clone()).repr(), "Atomic(Non())");
+        assert_eq!(unknown_atom.clone().merge(non_atom.clone()).repr(), "Atomic(Non())");
+        // Array[Unknown] | Atomic
+        let unknown_array = RustJsonSchema::Array(RustArray::new(RustJsonSchema::Unknown(RustUnknown{})));
+        assert_eq!(unknown_array.clone().merge(array.clone()).repr(), "Array(Atomic(Str()))");
+        assert_eq!(array.clone().merge(unknown_array.clone()).repr(), "Array(Atomic(Str()))");
         // Atomic | Atomic (1)
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        assert_eq!(non_atom.merge(str_atom).repr(), "Optional(Atomic(Str()))");
+        assert_eq!(non_atom.clone().merge(str_atom.clone()).repr(), "Optional(Atomic(Str()))");
         // Atomic | Atomic (2)
-        let str_atom1 = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let str_atom2 = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        assert_eq!(str_atom1.merge(str_atom2).repr(), "Atomic(Str())");
+        assert_eq!(str_atom.clone().merge(str_atom.clone()).repr(), "Atomic(Str())");
         // Atomic | Array
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
-        assert_eq!(str_atom.merge(array).repr(), "Union({Array(Atomic(Str())), Atomic(Str())})");
+        assert_eq!(str_atom.clone().merge(array.clone()).repr(), "Union({Array(Atomic(Str())), Atomic(Str())})");
         // Atomic | Union (1)
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
-        let uni = array.merge(non_atom);
-        assert_eq!(str_atom.merge(uni).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
+        let uni = array.clone().merge(non_atom.clone());
+        assert_eq!(str_atom.clone().merge(uni).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
         // Atomic | Union (2)
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let str2_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
-        let uni = str_atom.merge(array.merge(non_atom));
-        assert_eq!(str2_atom.merge(uni).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
+        let uni = str_atom.clone().merge(array.clone().merge(non_atom.clone()));
+        assert_eq!(str_atom.clone().merge(uni).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
         // Array | Atomic 
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
-        assert_eq!(array.merge(str_atom).repr(), "Union({Array(Atomic(Str())), Atomic(Str())})");
+        assert_eq!(array.clone().merge(str_atom.clone()).repr(), "Union({Array(Atomic(Str())), Atomic(Str())})");
         // Array | Array 
         let str_array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
         let non_array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})))});
-        assert_eq!(str_array.merge(non_array).repr(), "Array(Optional(Atomic(Str())))");
+        assert_eq!(str_array.clone().merge(non_array.clone()).repr(), "Array(Optional(Atomic(Str())))");
         // Array | Union (1)
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
-        let uni = str_atom.merge(non_atom);
-        assert_eq!(array.merge(uni).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
+        let uni = str_atom.clone().merge(non_atom.clone());
+        assert_eq!(array.clone().merge(uni).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
         // Array | Union (2)
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let non_array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})))});
-        let str_array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
-        let uni = str_atom.merge(non_atom).merge(non_array);
-        assert_eq!(str_array.merge(uni).repr(), "Union({Array(Optional(Atomic(Str()))), Atomic(Non()), Atomic(Str())})");
+        let uni = str_atom.clone().merge(non_atom.clone()).merge(non_array.clone());
+        assert_eq!(str_array.clone().merge(uni).repr(), "Union({Array(Optional(Atomic(Str()))), Atomic(Non()), Atomic(Str())})");
         // Union | Atomic
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
-        let uni = array.merge(non_atom);
-        assert_eq!(uni.merge(str_atom).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
+        let uni = array.clone().merge(non_atom.clone());
+        assert_eq!(uni.merge(str_atom.clone()).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
         // Union | Array
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let non_array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})))});
-        let str_array = RustJsonSchema::Array(RustArray{ content: Box::new(RustJsonSchema::Atomic(RustAtomic::Str(RustStr{})))});
-        let uni = str_atom.merge(non_atom).merge(non_array);
-        assert_eq!(uni.merge(str_array).repr(), "Union({Array(Optional(Atomic(Str()))), Atomic(Non()), Atomic(Str())})");
+        let uni = str_atom.clone().merge(non_atom.clone()).merge(non_array.clone());
+        assert_eq!(uni.merge(str_array.clone()).repr(), "Union({Array(Optional(Atomic(Str()))), Atomic(Non()), Atomic(Str())})");
         // Union | Union (1)
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let uni1 = str_atom.merge(non_atom);
-        let int_atom = RustJsonSchema::Atomic(RustAtomic::Num(RustNum::Int(RustInt{})));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let uni2 = int_atom.merge(non_atom);
-        assert_eq!(uni1.merge(uni2).repr(), "Union({Atomic(Int()), Atomic(Non()), Atomic(Str())})");
+        let uni1 = str_atom.clone().merge(non_atom.clone());
+        let uni2 = int_atom.clone().merge(non_atom.clone());
+        assert_eq!(uni1.clone().merge(uni2).repr(), "Union({Atomic(Int()), Atomic(Non()), Atomic(Str())})");
         // Union | Union (2)
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let uni1 = str_atom.merge(non_atom);
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let uni2 = str_atom.merge(non_atom);
-        assert_eq!(uni1.merge(uni2).repr(), "Optional(Atomic(Str()))");
+        let uni3 = str_atom.clone().merge(non_atom.clone());
+        assert_eq!(uni1.merge(uni3).repr(), "Optional(Atomic(Str()))");
         // Record | Union 
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
         let mut map = HashMap::new();
-        map.insert("banana".to_owned(), non_atom);
-        map.insert("apple".to_owned(), str_atom);
+        map.insert("banana".to_owned(), non_atom.clone());
+        map.insert("apple".to_owned(), str_atom.clone());
         let rr1 = RustJsonSchema::Record(RustRecord::new(map));
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
-        let uni1 = str_atom.merge(non_atom).merge(rr1.clone());
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
+        let uni1 = str_atom.clone().merge(non_atom.clone()).merge(rr1.clone());
         let mut map = HashMap::new();
-        map.insert("can".to_owned(), str_atom);
-        map.insert("banana".to_owned(), non_atom);
+        map.insert("can".to_owned(), str_atom.clone());
+        map.insert("banana".to_owned(), non_atom.clone());
         let rr2 = RustJsonSchema::Record(RustRecord::new(map));
         assert_eq!(rr2.merge(uni1).repr(), "Union({Atomic(Non()), Atomic(Str()), Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non()), \"can\": Atomic(Str())})})");
         // Record | Record
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
         let mut map = HashMap::new();
-        map.insert("banana".to_owned(), non_atom);
-        map.insert("apple".to_owned(), str_atom);
+        map.insert("banana".to_owned(), non_atom.clone());
+        map.insert("apple".to_owned(), str_atom.clone());
         let rr1 = RustJsonSchema::Record(RustRecord::new(map));
-        let str_atom = RustJsonSchema::Atomic(RustAtomic::Str(RustStr{}));
-        let non_atom = RustJsonSchema::Atomic(RustAtomic::Non(RustNon{}));
         let mut map = HashMap::new();
-        map.insert("can".to_owned(), str_atom);
-        map.insert("banana".to_owned(), non_atom);
+        map.insert("can".to_owned(), str_atom.clone());
+        map.insert("banana".to_owned(), non_atom.clone());
         let rr2 = RustJsonSchema::Record(RustRecord::new(map));
         assert_eq!(rr1.clone().merge(rr2.clone()).repr(), "Record({\"apple\": Atomic(Str()), \"banana\": Atomic(Non()), \"can\": Atomic(Str())})");
         let r = rr1.clone().merge(rr2.clone());

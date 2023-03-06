@@ -66,6 +66,7 @@ use schema::num::{Float, Int};
 use schema::record::{Record, FieldSet, UniformRecord};
 use schema::array::{Array};
 use schema::unions::{Union, Optional};
+use schema::unknown::Unknown;
 //////////////////// Reduce Merge of Json Schemas ///////////////////////
 
 #[pymodule]
@@ -82,5 +83,6 @@ fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
     m.add_class::<UniformRecord>()?;
     m.add_class::<Union>()?;
     m.add_class::<Optional>()?;
+    m.add_class::<Unknown>()?;
     return Ok( () );
 }

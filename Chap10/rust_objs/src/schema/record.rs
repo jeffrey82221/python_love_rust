@@ -126,7 +126,7 @@ impl RustRecord {
         // 2. [X] If repr_co_occurrence and repr_normal is very close, use repr_co_occurrence. 
         let reduced_schemas = reduce(self.field_schema.values().cloned().collect());
         match reduced_schemas {
-            RustJsonSchema::Union(u) => {
+            RustJsonSchema::Union(_) => {
                 let repr_n = self.repr_normal();
                 if self.field_comb_counter.len() == 1 {
                     repr_n

@@ -10,6 +10,7 @@ use crate::schema::atomic::{RustAtomic, RustNon, RustBool, RustStr};
 use crate::schema::num::{RustNum, RustInt, RustFloat};
 use crate::schema::array::RustArray;
 use crate::schema::record::RustRecord;
+use crate::schema::unknown::RustUnknown;
 use super::reduce::reduce;
 pub struct InferenceEngine {
     pool: ThreadPool
@@ -23,7 +24,7 @@ impl InferenceEngine {
         InferenceEngine {pool: pool}
     }
     pub fn infer(&self, batch: Vec<&str>) -> String {
-        let first_schema = to_schema(serde_json::from_str(batch[0].clone()).unwrap());
+        let first_schema = RustJsonSchema::Unknown(RustUnknown::new());
         let reduced = self.pool.install(|| {
             batch
                 .into_par_iter()
@@ -84,6 +85,9 @@ mod tests {
         let jsons = vec!["1"];
         let result = inferer.infer(jsons);
         assert_eq!(result, "Atomic(Int())");
+        let jsons = vec![];
+        let result = inferer.infer(jsons);
+        assert_eq!(result, "Unknown()");
     }
     #[test]
     fn test_to_schema() {
