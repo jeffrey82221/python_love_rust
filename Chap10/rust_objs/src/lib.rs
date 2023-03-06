@@ -89,6 +89,7 @@ impl InferenceEngine {
 }
 #[pymodule]
 fn rust_objs( _py: Python, m: &PyModule ) -> PyResult<()> {
+    m.add_class::<InferenceEngine>()?;
     m.add_class::<Int>()?;
     m.add_class::<Float>()?;
     m.add_class::<Str>()?;
