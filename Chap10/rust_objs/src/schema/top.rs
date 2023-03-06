@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
+use crate::op::reduce::reduce;
 use super::atomic::RustAtomic;
 use super::array::RustArray;
 use super::record::RustRecord;
@@ -205,10 +206,10 @@ impl RustJsonSchema {
                         other.merge(self)
                     },
                     RustJsonSchema::Union(_r) => {
-                        let mut content = HashSet::new();
-                        content.extend(l.content.clone());
-                        content.extend(_r.content.clone());
-                        RustJsonSchema::Union(RustUnion {content: content})                        
+                        let mut schemas = Vec::new();
+                        schemas.extend(l.content.clone());
+                        schemas.extend(_r.content.clone());
+                        reduce(schemas)
                     },
                 }
             }
