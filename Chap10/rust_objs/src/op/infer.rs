@@ -6,8 +6,9 @@ use crate::schema::num::{RustNum, RustInt, RustFloat};
 use crate::schema::array::RustArray;
 use crate::schema::record::RustRecord;
 use super::reduce::reduce;
-////////////// Main Function ///////////////////////
-pub fn to_schema(json_value: Value) -> RustJsonSchema {
+
+
+fn to_schema(json_value: Value) -> RustJsonSchema {
     match json_value {
         Value::Null => {
             RustJsonSchema::Atomic(RustAtomic::Non(RustNon {}))
