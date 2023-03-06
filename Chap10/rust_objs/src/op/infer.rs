@@ -1,3 +1,8 @@
+use rayon::ThreadPool;
+use rayon::ThreadPoolBuilder;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
+use num_cpus;
 use serde_json::Value;
 use std::collections::HashMap;
 use crate::schema::top::RustJsonSchema;
@@ -6,6 +11,28 @@ use crate::schema::num::{RustNum, RustInt, RustFloat};
 use crate::schema::array::RustArray;
 use crate::schema::record::RustRecord;
 use super::reduce::reduce;
+pub struct InferenceEngine {
+    pool: ThreadPool
+}
+impl InferenceEngine {
+    fn new() -> InferenceEngine {
+        let pool = ThreadPoolBuilder::new()
+            .num_threads(num_cpus::get() * 2)
+            .build()
+            .unwrap();
+        InferenceEngine {pool: pool}
+    }
+    pub fn infer(&self, batch: Vec<&str>) -> String {
+        let first_schema = to_schema(serde_json::from_str(batch[0].clone()).unwrap());
+        let reduced = self.pool.install(|| {
+            batch
+                .into_par_iter()
+                .map(|json_str| to_schema(serde_json::from_str(json_str).unwrap()))
+                .reduce(|| first_schema.clone(), |x, y| x.merge(y.clone()))
+        });
+        reduced.repr()
+    }
+}
 
 
 fn to_schema(json_value: Value) -> RustJsonSchema {
@@ -45,8 +72,19 @@ fn to_schema(json_value: Value) -> RustJsonSchema {
 #[cfg(test)]
 mod tests {
     use crate::op::infer::to_schema;
+    use crate::op::infer::InferenceEngine;
     use serde_json::Value;
     use serde_json;
+    #[test]
+    fn test_infer() {
+        let inferer = InferenceEngine::new();
+        let jsons = vec!["1", "1.0"];
+        let result = inferer.infer(jsons);
+        assert_eq!(result, "Union({Atomic(Float()), Atomic(Int())})");
+        let jsons = vec!["1"];
+        let result = inferer.infer(jsons);
+        assert_eq!(result, "Atomic(Int())");
+    }
     #[test]
     fn test_to_schema() {
         let json_str = "null";
