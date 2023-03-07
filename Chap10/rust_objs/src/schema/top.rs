@@ -57,11 +57,8 @@ impl RustJsonSchema {
                         content.insert(other.clone());
                         RustJsonSchema::Union(RustUnion {content: content})                        
                     },
-                    RustJsonSchema::Union(_r) => {
-                        let mut content = HashSet::new();
-                        content.extend(_r.content);
-                        content.insert(self.clone());
-                        RustJsonSchema::Union(RustUnion {content: content})                        
+                    RustJsonSchema::Union(_) => {
+                        other.merge(self)
                     },
                 }
             },
@@ -82,31 +79,8 @@ impl RustJsonSchema {
                         content.insert(other.clone());
                         RustJsonSchema::Union(RustUnion {content: content})                        
                     },
-                    RustJsonSchema::Union(_r) => {
-                        let mut content = HashSet::new();
-                        let mut has_array: u8 = 0;
-                        for jsonschema in _r.content.iter() {
-                            match jsonschema {
-                                RustJsonSchema::Atomic(_) => {
-                                    content.insert(jsonschema.clone());
-                                },
-                                RustJsonSchema::Array(_) => {
-                                    content.insert(self.clone().merge(jsonschema.clone()));
-                                    has_array += 1;
-                                },
-                                RustJsonSchema::Record(_) => {
-                                    content.insert(jsonschema.clone());
-                                },
-                                RustJsonSchema::Union(_u) => {
-                                    content.extend(_u.content.clone());
-                                },
-                                RustJsonSchema::Unknown(_) => {}
-                            }
-                        }
-                        if has_array == 0 {
-                            content.insert(self.clone());
-                        }
-                        RustJsonSchema::Union(RustUnion {content: content})      
+                    RustJsonSchema::Union(_) => {
+                        other.merge(self)
                     },
                 }
             },
@@ -197,10 +171,9 @@ impl RustJsonSchema {
                         self
                     },
                     RustJsonSchema::Atomic(_) => {
-                        other.merge(self)
-                    },
-                    RustJsonSchema::Array(_) => {
-                        other.merge(self)
+                        let mut content = l.content.clone();
+                        content.insert(other.clone());
+                        RustJsonSchema::Union(RustUnion {content: content})
                     },
                     RustJsonSchema::Record(_) => {
                         other.merge(self)
@@ -210,6 +183,32 @@ impl RustJsonSchema {
                         schemas.extend(l.content.clone());
                         schemas.extend(_r.content.clone());
                         reduce(schemas)
+                    },
+                    _ => {
+                        let mut content = HashSet::new();
+                        let mut has_array: u8 = 0;
+                        for jsonschema in l.content.iter() {
+                            match jsonschema {
+                                RustJsonSchema::Atomic(_) => {
+                                    content.insert(jsonschema.clone());
+                                },
+                                RustJsonSchema::Array(_) => {
+                                    content.insert(other.clone().merge(jsonschema.clone()));
+                                    has_array += 1;
+                                },
+                                RustJsonSchema::Record(_) => {
+                                    content.insert(jsonschema.clone());
+                                },
+                                RustJsonSchema::Union(_u) => {
+                                    panic!("There should not be Union in Union")
+                                },
+                                RustJsonSchema::Unknown(_) => {}
+                            }
+                        }
+                        if has_array == 0 {
+                            content.insert(other.clone());
+                        }
+                        RustJsonSchema::Union(RustUnion {content: content})
                     },
                 }
             }
@@ -255,6 +254,9 @@ mod tests {
         // Atomic | Union (2)
         let uni = str_atom.clone().merge(array.clone().merge(non_atom.clone()));
         assert_eq!(str_atom.clone().merge(uni).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
+        // Atomic | Union (3)
+        let uni = str_atom.clone().merge(array.clone().merge(non_atom.clone()));
+        assert_eq!(uni.clone().merge(str_atom.clone()).repr(), "Union({Array(Atomic(Str())), Atomic(Non()), Atomic(Str())})");
         // Array | Atomic 
         assert_eq!(array.clone().merge(str_atom.clone()).repr(), "Union({Array(Atomic(Str())), Atomic(Str())})");
         // Array | Array 
