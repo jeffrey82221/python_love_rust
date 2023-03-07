@@ -152,32 +152,6 @@ impl RustJsonSchema {
                         content.insert(other.clone());
                         RustJsonSchema::Union(RustUnion {content: content})
                     },
-                    RustJsonSchema::Record(_) => {
-                        let mut content = HashSet::new();
-                        let mut has_record: u8 = 0;
-                        for jsonschema in l.content.iter() {
-                            match jsonschema {
-                                RustJsonSchema::Atomic(_) => {
-                                    content.insert(jsonschema.clone());
-                                },
-                                RustJsonSchema::Array(_) => {
-                                    content.insert(jsonschema.clone());
-                                },
-                                RustJsonSchema::Record(_) => {
-                                    content.insert(other.clone().merge(jsonschema.clone()));
-                                    has_record += 1;
-                                },
-                                RustJsonSchema::Union(_u) => {
-                                    content.extend(_u.content.clone());
-                                },
-                                RustJsonSchema::Unknown(_) => {}
-                            }
-                        }
-                        if has_record == 0 {
-                            content.insert(other.clone());
-                        }
-                        RustJsonSchema::Union(RustUnion {content: content})
-                    },
                     RustJsonSchema::Union(_r) => {
                         let mut schemas = Vec::new();
                         schemas.extend(l.content.clone());
@@ -186,26 +160,30 @@ impl RustJsonSchema {
                     },
                     _ => {
                         let mut content = HashSet::new();
-                        let mut has_array: u8 = 0;
+                        let mut total_has_same_type: u8 = 0;
                         for jsonschema in l.content.iter() {
-                            match jsonschema {
-                                RustJsonSchema::Atomic(_) => {
-                                    content.insert(jsonschema.clone());
-                                },
-                                RustJsonSchema::Array(_) => {
-                                    content.insert(other.clone().merge(jsonschema.clone()));
-                                    has_array += 1;
-                                },
-                                RustJsonSchema::Record(_) => {
-                                    content.insert(jsonschema.clone());
-                                },
+                            match &jsonschema {
                                 RustJsonSchema::Union(_u) => {
                                     panic!("There should not be Union in Union")
                                 },
-                                RustJsonSchema::Unknown(_) => {}
+                                RustJsonSchema::Unknown(_) => {},
+                                _ => {
+                                    let is_same_type = match (&other, &jsonschema) {
+                                        (RustJsonSchema::Atomic(_), RustJsonSchema::Atomic(_)) => true,
+                                        (RustJsonSchema::Array(_), RustJsonSchema::Array(_)) => true,
+                                        (RustJsonSchema::Record(_), RustJsonSchema::Record(_)) => true,
+                                        (_, _) => false
+                                    };
+                                    if is_same_type {
+                                        content.insert(other.clone().merge(jsonschema.clone()));
+                                        total_has_same_type += 1;
+                                    } else {
+                                        content.insert(jsonschema.clone());
+                                    }
+                                }
                             }
                         }
-                        if has_array == 0 {
+                        if total_has_same_type == 0 {
                             content.insert(other.clone());
                         }
                         RustJsonSchema::Union(RustUnion {content: content})
