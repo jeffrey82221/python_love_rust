@@ -137,31 +137,8 @@ impl RustJsonSchema {
                             field_counter: field_counter
                         })
                     },
-                    RustJsonSchema::Union(_r) => {
-                        let mut content = HashSet::new();
-                        let mut has_record: u8 = 0;
-                        for jsonschema in _r.content.iter() {
-                            match jsonschema {
-                                RustJsonSchema::Atomic(_) => {
-                                    content.insert(jsonschema.clone());
-                                },
-                                RustJsonSchema::Array(_) => {
-                                    content.insert(jsonschema.clone());
-                                },
-                                RustJsonSchema::Record(_) => {
-                                    content.insert(self.clone().merge(jsonschema.clone()));
-                                    has_record += 1;
-                                },
-                                RustJsonSchema::Union(_u) => {
-                                    content.extend(_u.content.clone());
-                                },
-                                RustJsonSchema::Unknown(_) => {}
-                            }
-                        }
-                        if has_record == 0 {
-                            content.insert(self.clone());
-                        }
-                        RustJsonSchema::Union(RustUnion {content: content})   
+                    RustJsonSchema::Union(_) => {
+                        other.merge(self)
                     },
                 }
             },
@@ -176,7 +153,30 @@ impl RustJsonSchema {
                         RustJsonSchema::Union(RustUnion {content: content})
                     },
                     RustJsonSchema::Record(_) => {
-                        other.merge(self)
+                        let mut content = HashSet::new();
+                        let mut has_record: u8 = 0;
+                        for jsonschema in l.content.iter() {
+                            match jsonschema {
+                                RustJsonSchema::Atomic(_) => {
+                                    content.insert(jsonschema.clone());
+                                },
+                                RustJsonSchema::Array(_) => {
+                                    content.insert(jsonschema.clone());
+                                },
+                                RustJsonSchema::Record(_) => {
+                                    content.insert(other.clone().merge(jsonschema.clone()));
+                                    has_record += 1;
+                                },
+                                RustJsonSchema::Union(_u) => {
+                                    content.extend(_u.content.clone());
+                                },
+                                RustJsonSchema::Unknown(_) => {}
+                            }
+                        }
+                        if has_record == 0 {
+                            content.insert(other.clone());
+                        }
+                        RustJsonSchema::Union(RustUnion {content: content})
                     },
                     RustJsonSchema::Union(_r) => {
                         let mut schemas = Vec::new();
