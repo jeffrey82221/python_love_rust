@@ -1,8 +1,3 @@
-/* 
-FIXME: 
-- [ ] Need final refinement to avoid strange union: 
-'Union({Atomic(Float()), Atomic(Int()), Atomic(Str()), Record({"apple": Atomic(Int()), "banana": Atomic(Float())}), Record({"apple": Atomic(Int()), "banana": Atomic(Float())}), Record({"apple": Atomic(Int()), "banana": Atomic(Float())}), Record({"apple": Atomic(Int()), "banana": Atomic(Float())})})'
-*/
 use rayon::ThreadPool;
 use rayon::ThreadPoolBuilder;
 use rayon::iter::IntoParallelIterator;
