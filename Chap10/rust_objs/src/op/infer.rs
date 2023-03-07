@@ -7,7 +7,6 @@ use rayon::ThreadPool;
 use rayon::ThreadPoolBuilder;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
-use num_cpus;
 use serde_json::Value;
 use std::collections::HashMap;
 use crate::schema::top::RustJsonSchema;
@@ -21,9 +20,9 @@ pub struct RustInferenceEngine {
     pool: ThreadPool
 }
 impl RustInferenceEngine {
-    pub fn new() -> RustInferenceEngine {
+    pub fn new(cpu_cnt: usize) -> RustInferenceEngine {
         let pool = ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get() * 2)
+            .num_threads(cpu_cnt)
             .build()
             .unwrap();
         RustInferenceEngine {pool: pool}
@@ -82,7 +81,7 @@ mod tests {
     use serde_json;
     #[test]
     fn test_infer() {
-        let inferer = RustInferenceEngine::new();
+        let inferer = RustInferenceEngine::new(1);
         let jsons = vec!["1", "1.0"];
         let result = inferer.infer(jsons);
         assert_eq!(result, "Union({Atomic(Float()), Atomic(Int())})");

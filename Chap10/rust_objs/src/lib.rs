@@ -60,6 +60,7 @@
 // 7. [ ] UnitTest identical to the jsonschema python package.
 use pyo3::prelude::*;
 use pyo3::types::PyList;
+use num_cpus;
 mod op;
 use op::infer::RustInferenceEngine;
 mod schema;
@@ -74,11 +75,17 @@ use schema::unknown::Unknown;
 struct InferenceEngine {
     rust_obj: RustInferenceEngine
 }
+// 
 #[pymethods]
 impl InferenceEngine {
     #[new]
-    fn new() -> PyResult<Self> {
-        Ok(InferenceEngine { rust_obj: RustInferenceEngine::new()})
+    fn new(cpu_cnt: Option<i32>) -> PyResult<Self> {
+        let set_cnt = match cpu_cnt {
+            Some(val) => val as usize,
+            _ => num_cpus::get()
+        };
+        println!("Thread Count: {}", set_cnt);
+        Ok(InferenceEngine { rust_obj: RustInferenceEngine::new(set_cnt)})
     }
     fn run(&self, batch: &PyList) -> String {
         let vec: Vec<&str> = (0..batch.len())
