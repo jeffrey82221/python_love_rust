@@ -11,7 +11,13 @@ pub struct Atomic {
 impl Atomic {
     #[new]
     fn new(obj: &PyAny) -> PyResult<Self> {
-        let rust_atomic = match (obj.extract::<Int>(), obj.extract::<Float>(), obj.extract::<Str>(), obj.extract::<Non>(), obj.extract::<Bool>()) {
+        let rust_atomic = match (
+                obj.extract::<Int>(), 
+                obj.extract::<Float>(), 
+                obj.extract::<Str>(), 
+                obj.extract::<Non>(), 
+                obj.extract::<Bool>()
+            ) {
             (Ok(x), _, _, _, _) => RustAtomic::Num(RustNum::Int(x.rust_obj)),
             (_, Ok(x), _, _, _) => RustAtomic::Num(RustNum::Float(x.rust_obj)),
             (_, _, Ok(x), _, _) => RustAtomic::Str(x.rust_obj),

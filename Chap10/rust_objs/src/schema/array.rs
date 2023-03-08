@@ -1,9 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::exceptions;
-use super::atomic::Atomic;
-use super::record::Record;
-use super::unions::Union;
-use super::unknown::Unknown;
+use super::convert::py2rust;
 use super::top::RustJsonSchema;
 #[derive(Clone)]
 #[pyclass]
@@ -14,15 +10,7 @@ pub struct Array {
 impl Array {
     #[new]
     fn new(obj: &PyAny) -> PyResult<Self> {
-        let rust_schema = match (obj.extract::<Atomic>(), obj.extract::<Array>(), obj.extract::<Record>(), obj.extract::<Union>(), obj.extract::<Unknown>()) {
-            (Ok(atom), _, _, _, _) => RustJsonSchema::Atomic(atom.rust_obj),
-            (_, Ok(arr), _, _, _) => RustJsonSchema::Array(arr.rust_obj),
-            (_, _, Ok(rec), _, _) => RustJsonSchema::Record(rec.rust_obj),
-            (_, _, _, Ok(uni), _) => RustJsonSchema::Union(uni.rust_obj),
-            (_, _, _, _, Ok(unk)) => RustJsonSchema::Unknown(unk.rust_obj),
-            _ => return Err(exceptions::PyTypeError::new_err("Expect an Atomic, Array, Record, Union, or Unknown"))
-        };
-        Ok(Array { rust_obj: RustArray{content: Box::new(rust_schema)} })
+        Ok(Array { rust_obj: RustArray{content: Box::new(py2rust(obj))} })
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()

@@ -6,16 +6,14 @@ let record fields ordered by occurrence
 - [ ] repr_uniform
 */
 use pyo3::prelude::*;
-use pyo3::exceptions;
 use pyo3::types::{PySet, PyDict};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 use super::top::RustJsonSchema;
-use super::atomic::Atomic;
-use super::array::Array;
-use super::unions::Union;
+use super::convert::py2rust;
 use crate::op::reduce::reduce;
+
 
 ////////////// PyObjs ///////////////////
 #[derive(Clone)]
@@ -29,16 +27,9 @@ impl Record {
     #[new]
     fn new(obj: &PyDict) -> PyResult<Self> {
         let mut content = HashMap::new();
-        for (key, value) in obj.iter() {
+        for (key, schema) in obj.iter() {
             let key_str: String = key.extract().unwrap();
-            let rust_schema = match (value.extract::<Atomic>(), value.extract::<Array>(), value.extract::<Record>(), value.extract::<Union>()) {
-                (Ok(atom), _, _, _) => RustJsonSchema::Atomic(atom.rust_obj),
-                (_, Ok(arr), _, _) => RustJsonSchema::Array(arr.rust_obj),
-                (_, _, Ok(rec), _) => RustJsonSchema::Record(rec.rust_obj),
-                (_, _, _, Ok(uni)) => RustJsonSchema::Union(uni.rust_obj),
-                _ => return Err(exceptions::PyTypeError::new_err("Expect Atomic, Array, Record, or Union"))
-            };
-            content.insert(key_str, rust_schema);
+            content.insert(key_str, py2rust(schema));
         }
         Ok(Record { rust_obj: RustRecord::new(content)})
     }
@@ -58,13 +49,7 @@ impl UniformRecord {
     #[new]
     fn new(field_set: FieldSet, value: &PyAny) -> PyResult<UniformRecord> {
         let mut content = HashMap::new();
-        let rust_schema = match (value.extract::<Atomic>(), value.extract::<Array>(), value.extract::<Record>(), value.extract::<Union>()) {
-            (Ok(atom), _, _, _) => RustJsonSchema::Atomic(atom.rust_obj),
-            (_, Ok(arr), _, _) => RustJsonSchema::Array(arr.rust_obj),
-            (_, _, Ok(rec), _) => RustJsonSchema::Record(rec.rust_obj),
-            (_, _, _, Ok(uni)) => RustJsonSchema::Union(uni.rust_obj),
-            _ => return Err(exceptions::PyTypeError::new_err("Expect Atomic, Array, Record, or Union"))
-        };
+        let rust_schema = py2rust(value);
         for key_str in field_set.rust_obj.content.iter() {
             content.insert(key_str.clone(), rust_schema.clone());
         }
@@ -193,7 +178,7 @@ impl RustFieldSet {
     }
     pub fn repr(&self) -> String {
         let strings: Vec<String> = self.to_vec().iter()
-            .map(|s| format!("'{}'",s))
+            .map(|s| format!("\"{}\"",s))
             .collect();
         format!("FieldSet({{{}}})", strings.join(", "))
     }
@@ -300,7 +285,7 @@ mod tests {
         map.insert("can".to_owned(), str_atom.clone());
         let rr = RustRecord::new(map.clone());
         let values_vec: Vec<RustJsonSchema> = rr.field_schema.values().cloned().collect();
-        assert_eq!(rr.repr_uniform(reduce(values_vec)), "UniformRecord(FieldSet({'apple', 'banana', 'can'}), Atomic(Str()))");
+        assert_eq!(rr.repr_uniform(reduce(values_vec)), "UniformRecord(FieldSet({\"apple\", \"banana\", \"can\"}), Atomic(Str()))");
     }
     #[test]
     fn test_record_repr() {
@@ -354,7 +339,7 @@ mod tests {
         let s_schema = RustJsonSchema::Record(RustRecord::new(map.clone()));
         match s_schema {
             RustJsonSchema::Record(r) => {
-                assert_eq!(r.repr(), "UniformRecord(FieldSet({'apple', 'banana', 'can'}), Atomic(Str()))");
+                assert_eq!(r.repr(), "UniformRecord(FieldSet({\"apple\", \"banana\", \"can\"}), Atomic(Str()))");
             },
             _ => {
                 panic!();

@@ -1,12 +1,9 @@
 use pyo3::prelude::*;
-use pyo3::exceptions;
 use pyo3::types::PySet;
 use std::collections::HashSet;
-use super::atomic::Atomic;
-use super::array::Array;
-use super::record::Record;
-use super::top::RustJsonSchema;
 use super::atomic::{RustNon, RustAtomic};
+use super::top::RustJsonSchema;
+use super::convert::py2rust;
 //////////////// Python Objs ////////////////////////
 #[derive(Clone)]
 #[pyclass]
@@ -22,20 +19,7 @@ impl Union {
         let mut cnt: u32 = 0;
         for value in obj.iter() {
             cnt += 1;
-            match (value.extract::<Atomic>(), value.extract::<Array>(), value.extract::<Record>()){
-                (Ok(a), _, _) => {
-                    content.insert(RustJsonSchema::Atomic(a.rust_obj));
-                },
-                (_, Ok(a), _) => {
-                    content.insert(RustJsonSchema::Array(a.rust_obj));
-                },
-                (_, _, Ok(a)) => {
-                    content.insert(RustJsonSchema::Record(a.rust_obj));
-                },
-                _ => {
-                    return Err(exceptions::PyTypeError::new_err("Expect an Atomic, Array, or Record"));
-                }
-            }
+            content.insert(py2rust(value));
         }
         if cnt < 2 {
             panic!("# of content of Union should >= 2")
@@ -57,12 +41,7 @@ impl Optional {
     #[new]
     fn new(obj: &PyAny) -> PyResult<Self> {
         let mut content = HashSet::new();
-        let rust_schema = match (obj.extract::<Atomic>(), obj.extract::<Array>(), obj.extract::<Record>()){
-            (Ok(a), _, _) => RustJsonSchema::Atomic(a.rust_obj.clone()),
-            (_, Ok(a), _) => RustJsonSchema::Array(a.rust_obj.clone()),
-            (_, _, Ok(a)) => RustJsonSchema::Record(a.rust_obj.clone()),
-            _ => return Err(exceptions::PyTypeError::new_err("Expect an Atomic, Array, or Record"))
-        };
+        let rust_schema = py2rust(obj);
         content.insert(rust_schema);
         content.insert(RustJsonSchema::Atomic(RustAtomic::Non(RustNon{})));
         Ok(Optional { rust_obj: RustUnion::new(content)})
