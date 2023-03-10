@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 use super::top::RustJsonSchema;
-use super::atomic::Atomic;
+use super::atomic::atomic::Atomic;
 use super::array::Array;
 use super::record::{Record, UniformRecord};
 use super::unions::{Union, Optional};

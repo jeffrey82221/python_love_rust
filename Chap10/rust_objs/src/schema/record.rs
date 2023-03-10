@@ -190,7 +190,7 @@ impl Hash for RustFieldSet {
     }
 }
 
-use super::atomic::*;
+use super::atomic::atomic::*;
 #[cfg(test)]
 mod tests {
     use super::*;

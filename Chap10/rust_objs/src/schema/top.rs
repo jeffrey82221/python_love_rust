@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use crate::op::reduce::reduce;
-use super::atomic::RustAtomic;
+use super::atomic::atomic::RustAtomic;
 use super::array::RustArray;
-use super::record::RustRecord;
+use super::record::{RustRecord, RustFieldSet};
 use super::unions::RustUnion;
 use super::unknown::RustUnknown;
 //////////////////// JsonSchema ///////////////////////////
@@ -199,9 +199,8 @@ impl Hash for RustJsonSchema {
     }
 }
 
-use super::num::*;
-use super::atomic::*;
-use super::record::*;
+use super::atomic::num::*;
+use super::atomic::atomic::*;
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PySet;
 use std::collections::HashSet;
-use super::atomic::{RustNon, RustAtomic};
+use super::atomic::atomic::{RustNon, RustAtomic};
 use super::top::RustJsonSchema;
 use super::convert::py2rust;
 //////////////// Python Objs ////////////////////////
@@ -81,7 +81,7 @@ impl RustUnion {
     }
 }
 
-use super::atomic::*;
+use super::atomic::atomic::*;
 #[cfg(test)]
 mod tests {
     use super::*;

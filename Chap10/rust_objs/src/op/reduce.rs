@@ -9,10 +9,7 @@ pub fn reduce(batch: Vec<RustJsonSchema>) -> RustJsonSchema {
 #[cfg(test)]
 mod tests {
     use crate::op::reduce::reduce;
-    use crate::schema::atomic::RustNon;
-    use crate::schema::atomic::RustBool;
-    use crate::schema::atomic::RustStr;
-    use crate::schema::atomic::RustAtomic;
+    use crate::schema::atomic::atomic::{RustNon, RustBool, RustStr, RustAtomic};
     use crate::schema::top::RustJsonSchema;
     #[test]
     fn test_reduce() {

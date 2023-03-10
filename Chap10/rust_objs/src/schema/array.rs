@@ -29,7 +29,7 @@ impl RustArray {
     }
 }
 
-use super::atomic::*;
+use super::atomic::atomic::*;
 #[cfg(test)]
 mod tests {
     use super::*;
