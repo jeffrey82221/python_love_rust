@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
-use pyo3::exceptions;
-use super::num::{RustNum, Float, Int};
+use super::num::RustNum;
+use super::convert::py2rust;
 ////////////////// PyObjs ///////////////////
 #[derive(Clone, Copy)]
 #[pyclass]
@@ -11,21 +11,7 @@ pub struct Atomic {
 impl Atomic {
     #[new]
     fn new(obj: &PyAny) -> PyResult<Self> {
-        let rust_atomic = match (
-                obj.extract::<Int>(), 
-                obj.extract::<Float>(), 
-                obj.extract::<Str>(), 
-                obj.extract::<Non>(), 
-                obj.extract::<Bool>()
-            ) {
-            (Ok(x), _, _, _, _) => RustAtomic::Num(RustNum::Int(x.rust_obj)),
-            (_, Ok(x), _, _, _) => RustAtomic::Num(RustNum::Float(x.rust_obj)),
-            (_, _, Ok(x), _, _) => RustAtomic::Str(x.rust_obj),
-            (_, _, _, Ok(x), _) => RustAtomic::Non(x.rust_obj),
-            (_, _, _, _, Ok(x)) => RustAtomic::Bool(x.rust_obj),
-            _ => return Err(exceptions::PyTypeError::new_err("Expect an Int, Float, Str, Bool, or Non"))
-        };
-        Ok(Atomic { rust_obj: rust_atomic })
+        Ok(Atomic { rust_obj: py2rust(obj) })
     }
     fn __repr__(&self) -> String {
         self.rust_obj.repr()
