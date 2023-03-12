@@ -41,3 +41,9 @@ def test_schema_class_ok(test_data):
 def test_inference_ok(engine, test_data):
     for json_list, schema_str in test_data:
         assert engine.run(json_list) == schema_str
+
+
+def test_reduce_ok(engine):
+    assert engine.reduce([eval('Atomic(Int())')]) == 'Atomic(Int())'
+    assert engine.reduce([eval('Atomic(Int())'), eval(
+        'Atomic(Non())')]) == 'Optional(Atomic(Int()))'

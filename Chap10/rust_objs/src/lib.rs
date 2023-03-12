@@ -5,7 +5,7 @@
 // - The Object str can be transformed to Python object in Python domain. 
 // - When doing `|` operation in Python domain, `or` in Rust domain should be called.  
 // FEAT TODO:
-// 1. [ ] Build pure rust objects 
+// 1. [X] Build pure rust objects 
 //    - [X] Float
 //    - [X] Int
 //    - [X] Num 
@@ -57,19 +57,22 @@
 //    - [X] Seperate RustObjs and PythonObjs
 // 5. [X] Mapping of Json String to RustJsonSchema using JsonSerdson...
 // 6. [X] Implement methods on Rust objects and call them from the Python Object. 
-// 7. [ ] UnitTest identical to the jsonschema python package.
+// 7. [X] UnitTest identical to the jsonschema python package.
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use num_cpus;
 mod op;
 use op::infer::RustInferenceEngine;
+use op::reduce::reduce;
 mod schema;
+use schema::top::RustJsonSchema;
 use schema::atomic::atomic::{Non, Str, Bool, Atomic};
 use schema::atomic::num::{Float, Int};
 use schema::record::{Record, FieldSet, UniformRecord};
 use schema::array::{Array};
 use schema::unions::{Union, Optional};
 use schema::unknown::Unknown;
+use schema::convert::py2rust;
 //////////////////// Reduce Merge of Json Schemas ///////////////////////
 #[pyclass]
 struct InferenceEngine {
@@ -92,6 +95,13 @@ impl InferenceEngine {
             .map(|i| batch.get_item(i).unwrap().extract::<&str>().unwrap())
             .collect();
         self.rust_obj.infer(vec)
+    }
+    fn reduce(&self, batch: &PyList) -> String {
+        let s_vec: Vec<RustJsonSchema> = (0..batch.len())
+            .map(|i| batch.get_item(i).unwrap().extract::<&PyAny>().unwrap())
+            .map(|s| py2rust(s))
+            .collect();
+        reduce(s_vec).repr()
     }
 }
 #[pymodule]
